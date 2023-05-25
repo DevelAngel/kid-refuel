@@ -1,6 +1,5 @@
 mod download;
 mod error;
-mod grpc;
 mod load;
 mod models;
 mod parse;
@@ -8,7 +7,6 @@ mod save;
 mod schema;
 
 use crate::download::*;
-use crate::grpc::*;
 use crate::load::*;
 use crate::parse::*;
 use crate::save::*;
@@ -74,8 +72,6 @@ enum Commands {
         /// do not save to database
         dry_run: bool,
     },
-    /// Test gRPC helloworld service
-    TestService,
 }
 
 fn calc_duration<R: Rng>(rng: &mut R, interval: &Duration) -> Duration {
@@ -166,12 +162,6 @@ async fn cmd_run_loop(url: &Url, dry_run: bool) -> Result<(), Box<dyn std::error
     Ok(())
 }
 
-#[tracing::instrument]
-async fn cmd_test_service() -> Result<(), Box<dyn std::error::Error>> {
-    service().await?;
-    Ok(())
-}
-
 #[tokio::main]
 async fn main() -> Result<(), Box<dyn std::error::Error>> {
     tracing_subscriber::fmt()
@@ -190,7 +180,6 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
         Commands::Download { common, out } => { cmd_download(&common.url, out).await? }
         Commands::RunSingle { common, downloaded, dry_run } => { cmd_run_single(&common.url, downloaded, dry_run.to_owned()).await? }
         Commands::Run { common, dry_run } => { cmd_run_loop(&common.url, dry_run.to_owned()).await? }
-        Commands::TestService => { cmd_test_service().await? }
     }
 
     Ok(())

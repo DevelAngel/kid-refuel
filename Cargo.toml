@@ -1,7 +1,14 @@
 [workspace]
-
 members = [
+    "service/server",
     "sim",
-    "server",
-    "client",
+]
+default-members = [
+    "service/server",
+]
+
+[workspace.package]
+version = "0.2.0"
+authors = [
+    "Angelos Drossos"
 ]
