@@ -9,10 +9,10 @@ edition = "2021"
 [dependencies]
 askama = { version = "0.12.0", features = ["with-axum"] }
 askama_axum = "0.3.0"
-axum = "0.6.18"
-axum-macros = "0.3.7"
-chrono = "0.4.24"
+axum = { workspace = true }
+axum-macros = { workspace = true }
+chrono = { workspace = true }
 hyper = "0.14.26"
-tokio = { version = "1.28.1", features = ["full", "time"] }
-tracing = "0.1.37"
-tracing-subscriber = { version = "0.3.17", features = ["env-filter"] }
+tokio = { workspace = true, features = ["time"] }
+tracing = { workspace = true }
+tracing-subscriber = { workspace = true }
