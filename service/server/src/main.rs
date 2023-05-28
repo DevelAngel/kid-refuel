@@ -11,15 +11,17 @@ use crate::load::*;
 use crate::parse::*;
 use crate::save::*;
 
+use leptos::*;
+use rand::prelude::*;
+use diesel::prelude::*;
+
 use clap::{Parser, Subcommand, Args};
 use std::path::PathBuf;
-use diesel::prelude::*;
 use dotenvy::dotenv;
 use std::env;
 use url::Url;
 use tokio::signal;
 use tokio::time::{self, Duration};
-use rand::prelude::*;
 
 use tracing_subscriber::EnvFilter;
 
@@ -162,8 +164,18 @@ async fn cmd_run_loop(url: &Url, dry_run: bool) -> Result<(), Box<dyn std::error
     Ok(())
 }
 
+fn app(cx: leptos::Scope) -> impl IntoView {
+    use refuel_app::*;
+
+    view! { cx, <App /> }
+}
+
 #[tokio::main]
 async fn main() -> Result<(), Box<dyn std::error::Error>> {
+    use axum::Router;
+    use leptos::*;
+    use leptos_axum::{generate_route_list, LeptosRoutes};
+
     tracing_subscriber::fmt()
         .with_env_filter(EnvFilter::from_default_env())
         .with_writer(std::io::stderr)
@@ -171,15 +183,33 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
         .init();
 
     let cli = Cli::parse();
-    let command = &cli.command.unwrap_or(Commands::Run {
-        common: cli.common,
-        dry_run: false,
-    });
+    if let Some(command) = &cli.command {
+        match command {
+            Commands::Download { common, out } => { cmd_download(&common.url, out).await? }
+            Commands::RunSingle { common, downloaded, dry_run } => { cmd_run_single(&common.url, downloaded, dry_run.to_owned()).await? }
+            Commands::Run { common, dry_run } => { cmd_run_loop(&common.url, dry_run.to_owned()).await? }
+        }
+    } else {
+        let conf = get_configuration(None).await.unwrap();
+        let addr = conf.leptos_options.site_addr;
+        let leptos_options = conf.leptos_options;
+        // Generate the list of routes in your Leptos App
+        let routes = generate_route_list(app).await;
 
-    match command {
-        Commands::Download { common, out } => { cmd_download(&common.url, out).await? }
-        Commands::RunSingle { common, downloaded, dry_run } => { cmd_run_single(&common.url, downloaded, dry_run.to_owned()).await? }
-        Commands::Run { common, dry_run } => { cmd_run_loop(&common.url, dry_run.to_owned()).await? }
+        let app = Router::new()
+            .leptos_routes(
+                leptos_options,
+                routes,
+                app
+            );
+
+        // run our app with hyper
+        // `axum::Server` is a re-export of `hyper::Server`
+        info!("listening on http://{}", &addr);
+        axum::Server::bind(&addr)
+            .serve(app.into_make_service())
+            .await
+            .unwrap();
     }
 
     Ok(())

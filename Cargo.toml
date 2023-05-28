@@ -1,9 +1,11 @@
 [workspace]
 members = [
+    "service/front",
     "service/server",
     "sim",
 ]
 default-members = [
+    "service/front",
     "service/server",
 ]
 
@@ -18,7 +20,20 @@ axum = { version = "0.6.18" }
 axum-macros = { version = "0.3.7" }
 chrono = { version = "0.4.24" }
 clap = { version = "4.2.5", features = ["derive"] }
+leptos = { version = "0.3", default-features = false, features = ["stable"] }
+leptos_meta = { version = "0.3", default-features = false }
+leptos_router = { version = "0.3", default-features = false, features = [ "stable" ] }
+leptos_dom = { version = "0.3", default-features = false }
+leptos_axum = { version = "0.3" }
 thiserror = { version = "1.0.40" }
 tokio = { version = "1", features = ["full"] }
 tracing = { version = "0.1.37" }
 tracing-subscriber = { version = "0.3.17", features = ["env-filter"] }
+
+[[workspace.metadata.leptos]]
+name = "refuel"
+bin-package = "refuel-server"
+lib-package = "refuel-front"
+assets-dir = "service/assets"
+style-file = "service/css/main.scss"
+site-root = "target/site/refuel"
