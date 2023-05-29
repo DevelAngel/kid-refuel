@@ -2398,6 +2398,7 @@ name = "refuel-server"
 version = "0.2.0"
 dependencies = [
  "axum",
+ "axum-macros",
  "chrono",
  "clap",
  "diesel",

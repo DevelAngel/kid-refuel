@@ -6,22 +6,28 @@ mod parse;
 mod save;
 mod schema;
 
+mod fallback;
+
 use crate::download::*;
 use crate::load::*;
 use crate::parse::*;
 use crate::save::*;
 
+use crate::fallback::file_and_error_handler;
+
 use leptos::*;
 use rand::prelude::*;
 use diesel::prelude::*;
 
+use axum::{Router, routing::get};
 use clap::{Parser, Subcommand, Args};
-use std::path::PathBuf;
 use dotenvy::dotenv;
+use leptos_axum::{generate_route_list, LeptosRoutes};
 use std::env;
-use url::Url;
+use std::path::PathBuf;
 use tokio::signal;
 use tokio::time::{self, Duration};
+use url::Url;
 
 use tracing_subscriber::EnvFilter;
 
@@ -172,10 +178,6 @@ fn app(cx: leptos::Scope) -> impl IntoView {
 
 #[tokio::main]
 async fn main() -> Result<(), Box<dyn std::error::Error>> {
-    use axum::Router;
-    use leptos::*;
-    use leptos_axum::{generate_route_list, LeptosRoutes};
-
     tracing_subscriber::fmt()
         .with_env_filter(EnvFilter::from_default_env())
         .with_writer(std::io::stderr)
@@ -191,12 +193,16 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
         }
     } else {
         let conf = get_configuration(None).await.unwrap();
-        let addr = conf.leptos_options.site_addr;
         let leptos_options = conf.leptos_options;
+        let addr = leptos_options.site_addr;
+
         // Generate the list of routes in your Leptos App
         let routes = generate_route_list(app).await;
 
         let app = Router::new()
+            .route("/favicon.ico", get(file_and_error_handler))
+            .fallback(file_and_error_handler)
+            .with_state(leptos_options.clone())
             .leptos_routes(
                 leptos_options,
                 routes,
