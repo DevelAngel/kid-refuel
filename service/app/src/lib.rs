@@ -1,5 +1,6 @@
 use leptos::*;
 use leptos_meta::*;
+use leptos_router::*;
 
 #[component]
 pub fn App(cx: Scope) -> impl IntoView {
@@ -7,10 +8,50 @@ pub fn App(cx: Scope) -> impl IntoView {
 
     view! {
         cx,
+        <Title text="Refuel WebApp"/>
+        <Link rel="shortcut icon" type_="image/ico" href="/favicon.ico"/>
+        <Stylesheet id="leptos" href="/pkg/refuel.css"/>
+        <div id="root">
+            <Router>
+                <nav>
+                    <A href="">"Home"</A>
+                    <A href="about">"About"</A>
+                </nav>
+                <main>
+                    <Routes>
+                        <Route
+                            path=""
+                            view=move |cx| view! { cx,  <Home/> }
+                        >
+                        </Route>
+                        <Route
+                            path="about"
+                            view=move |cx| view! { cx,  <About/> }
+                        />
+                    </Routes>
+                </main>
+            </Router>
+        </div>
+    }
+}
+
+#[component]
+fn Home(cx: Scope) -> impl IntoView {
+    view! {
+        cx,
         <div>
-            <Stylesheet id="leptos" href="/pkg/project1.css"/>
-            <Title text="Cargo Leptos" />
-            <h1>"Hi from your Leptos WASM!"</h1>
+            <p>"Hello World!"</p>
+        </div>
+        <Outlet/>
+    }
+}
+
+#[component]
+fn About(cx: Scope) -> impl IntoView {
+    view! {
+        cx,
+        <div>
+            <p>"It's me!"</p>
         </div>
     }
 }
