@@ -10,28 +10,36 @@ pub fn App(cx: Scope) -> impl IntoView {
         cx,
         <Title text="Refuel WebApp"/>
         <Link rel="shortcut icon" type_="image/ico" href="/favicon.ico"/>
+        <Stylesheet id="picnic" href="/picnic.min.css"/>
         <Stylesheet id="leptos" href="/pkg/refuel.css"/>
-        <div id="root">
-            <Router>
-                <nav>
-                    <A href="">"Home"</A>
-                    <A href="about">"About"</A>
-                </nav>
-                <main>
-                    <Routes>
-                        <Route
-                            path=""
-                            view=move |cx| view! { cx,  <Home/> }
-                        >
-                        </Route>
-                        <Route
-                            path="about"
-                            view=move |cx| view! { cx,  <About/> }
-                        />
-                    </Routes>
-                </main>
-            </Router>
-        </div>
+        <Router>
+            <nav>
+                <A class="brand" href="">
+                    <img class="logo" src="/favicon.ico" />
+                    <span>"Refuel"</span>
+                </A>
+                // responsive
+                <input id="bmenub" type="checkbox" class="show"/>
+                <label for="bmenub" class="burger pseudo button">"MENU"</label>
+                // menu
+                <div class="menu">
+                    <A href="about" class="pseudo button icon-picture">"About"</A>
+                </div>
+            </nav>
+            <main>
+                <Routes>
+                    <Route
+                        path=""
+                        view=move |cx| view! { cx,  <Home/> }
+                    >
+                    </Route>
+                    <Route
+                        path="about"
+                        view=move |cx| view! { cx,  <About/> }
+                    />
+                </Routes>
+            </main>
+        </Router>
     }
 }
 
