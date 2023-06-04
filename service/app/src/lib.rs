@@ -48,7 +48,42 @@ fn Home(cx: Scope) -> impl IntoView {
     view! {
         cx,
         <div>
-            <p>"Hello World!"</p>
+            <table class="primary">
+                <thead>
+                    <tr>
+                        <th>"Refuel Station"</th>
+                        <th>"Address"</th>
+                        <th>"Price"</th>
+                        <th>"Updated"</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    <tr>
+                        <td>"MyESSO"</td>
+                        <td>"Marienfelder Chaussee 171, 12349 Berlin"</td>
+                        <td>1.78<sup>9</sup></td>
+                        <td>"2023-06-04 15:00"</td>
+                    </tr>
+                    <tr>
+                        <td>"MyJET"</td>
+                        <td>"Rhinstr. 240, 13055 Berlin"</td>
+                        <td>1.79<sup>8</sup></td>
+                        <td>"2023-06-04 14:00"</td>
+                    </tr>
+                    <tr>
+                        <td>"MyTotalEnergies"</td>
+                        <td>"Landsberger Allee 376, 12681 Berlin"</td>
+                        <td>1.81<sup>9</sup></td>
+                        <td>"2023-06-04 14:30"</td>
+                    </tr>
+                    <tr>
+                        <td>"MyAGIP ENI"</td>
+                        <td>"Dietzgenstr. 127, 13158 Berlin"</td>
+                        <td>1.80<sup>9</sup></td>
+                        <td>"2023-06-04 17:15"</td>
+                    </tr>
+                </tbody>
+            </table>
         </div>
         <Outlet/>
     }
