@@ -96,10 +96,10 @@ fn Home(cx: Scope) -> impl IntoView {
                         list.into_iter()
                             .map(|n| view! { cx,
                                 <tr>
-                                    <td>{n.name}</td>
-                                    <td>{n.addr}</td>
-                                    <td>{n.price[0]}","{n.price[1]}<sup>{n.price[2]}</sup></td>
-                                    <td>{format!("{}", n.updated.format("%Y-%m-%d %H:%M"))}</td>
+                                    <td><div>{n.name}</div></td>
+                                    <td><address>{n.addr}</address></td>
+                                    <td><span>{n.price[0]}","{n.price[1]}<sup>{n.price[2]}</sup></span></td>
+                                    <td><div>{format!("{}", n.updated.format("%Y-%m-%d %H:%M"))}</div></td>
                                 </tr>
                             })
                             .collect_view(cx)
