@@ -7,7 +7,7 @@ struct RefuelStation {
     name: String,
     addr: String,
     price: [u8; 3],
-    updated: DateTime<Local>,
+    updated: DateTime<Utc>,
 }
 
 #[component]
@@ -58,25 +58,25 @@ fn Home(cx: Scope) -> impl IntoView {
             name: "MyESSO".to_owned(),
             addr: "Marienfelder Chaussee 171, 12349 Berlin".to_owned(),
             price: [1, 78, 9],
-            updated: Local.with_ymd_and_hms(2023, 6, 4, 15, 0, 0).unwrap(),
+            updated: Utc.with_ymd_and_hms(2023, 6, 4, 13, 0, 0).unwrap(),
         },
         RefuelStation {
             name: "MyJET".to_owned(),
             addr: "Rhinstr. 240, 13055 Berlin".to_owned(),
             price: [1, 79, 8],
-            updated: Local.with_ymd_and_hms(2023, 6, 4, 14, 0, 0).unwrap(),
+            updated: Utc.with_ymd_and_hms(2023, 6, 4, 12, 0, 0).unwrap(),
         },
         RefuelStation {
             name: "MyTotalEnergies".to_owned(),
             addr: "Landsberger Allee 376, 12681 Berlin".to_owned(),
             price: [1, 81, 9],
-            updated: Local.with_ymd_and_hms(2023, 6, 4, 14, 30, 0).unwrap(),
+            updated: Utc.with_ymd_and_hms(2023, 6, 4, 12, 30, 0).unwrap(),
         },
         RefuelStation {
             name: "MyAGIP ENI".to_owned(),
             addr: "Dietzgenstr. 127, 13158 Berlin".to_owned(),
             price: [1, 80, 9],
-            updated: Local.with_ymd_and_hms(2023, 6, 4, 17, 15, 0).unwrap(),
+            updated: Utc.with_ymd_and_hms(2023, 6, 4, 15, 15, 0).unwrap(),
         },
     ];
     view! {
@@ -99,7 +99,7 @@ fn Home(cx: Scope) -> impl IntoView {
                                     <td><div>{n.name}</div></td>
                                     <td><address>{n.addr}</address></td>
                                     <td><span>{n.price[0]}","{n.price[1]}<sup>{n.price[2]}</sup></span></td>
-                                    <td><div>{format!("{}", n.updated.format("%Y-%m-%d %H:%M"))}</div></td>
+                                    <td><div>{format!("{}", n.updated.with_timezone(&Local).format("%Y-%m-%d %H:%M"))}</div></td>
                                 </tr>
                             })
                             .collect_view(cx)
