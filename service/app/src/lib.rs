@@ -2,6 +2,13 @@ use leptos::*;
 use leptos_meta::*;
 use leptos_router::*;
 
+struct RefuelStation {
+    name: String,
+    addr: String,
+    price: [u8; 3],
+    updated: String,
+}
+
 #[component]
 pub fn App(cx: Scope) -> impl IntoView {
     provide_meta_context(cx);
@@ -45,6 +52,32 @@ pub fn App(cx: Scope) -> impl IntoView {
 
 #[component]
 fn Home(cx: Scope) -> impl IntoView {
+    let list = vec![
+        RefuelStation {
+            name: "MyESSO".to_owned(),
+            addr: "Marienfelder Chaussee 171, 12349 Berlin".to_owned(),
+            price: [1, 78, 9],
+            updated: "2023-06-04 15:00".to_owned(),
+        },
+        RefuelStation {
+            name: "MyJET".to_owned(),
+            addr: "Rhinstr. 240, 13055 Berlin".to_owned(),
+            price: [1, 79, 8],
+            updated: "2023-06-04 14:00".to_owned(),
+        },
+        RefuelStation {
+            name: "MyTotalEnergies".to_owned(),
+            addr: "Landsberger Allee 376, 12681 Berlin".to_owned(),
+            price: [1, 81, 9],
+            updated: "2023-06-04 14:30".to_owned(),
+        },
+        RefuelStation {
+            name: "MyAGIP ENI".to_owned(),
+            addr: "Dietzgenstr. 127, 13158 Berlin".to_owned(),
+            price: [1, 80, 9],
+            updated: "2023-06-04 17:15".to_owned(),
+        },
+    ];
     view! {
         cx,
         <div>
@@ -58,30 +91,18 @@ fn Home(cx: Scope) -> impl IntoView {
                     </tr>
                 </thead>
                 <tbody>
-                    <tr>
-                        <td>"MyESSO"</td>
-                        <td>"Marienfelder Chaussee 171, 12349 Berlin"</td>
-                        <td>1.78<sup>9</sup></td>
-                        <td>"2023-06-04 15:00"</td>
-                    </tr>
-                    <tr>
-                        <td>"MyJET"</td>
-                        <td>"Rhinstr. 240, 13055 Berlin"</td>
-                        <td>1.79<sup>8</sup></td>
-                        <td>"2023-06-04 14:00"</td>
-                    </tr>
-                    <tr>
-                        <td>"MyTotalEnergies"</td>
-                        <td>"Landsberger Allee 376, 12681 Berlin"</td>
-                        <td>1.81<sup>9</sup></td>
-                        <td>"2023-06-04 14:30"</td>
-                    </tr>
-                    <tr>
-                        <td>"MyAGIP ENI"</td>
-                        <td>"Dietzgenstr. 127, 13158 Berlin"</td>
-                        <td>1.80<sup>9</sup></td>
-                        <td>"2023-06-04 17:15"</td>
-                    </tr>
+                    {
+                        list.into_iter()
+                            .map(|n| view! { cx,
+                                <tr>
+                                    <td>{n.name}</td>
+                                    <td>{n.addr}</td>
+                                    <td>{n.price[0]}","{n.price[1]}<sup>{n.price[2]}</sup></td>
+                                    <td>{n.updated}</td>
+                                </tr>
+                            })
+                            .collect_view(cx)
+                    }
                 </tbody>
             </table>
         </div>
