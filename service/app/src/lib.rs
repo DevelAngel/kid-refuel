@@ -26,7 +26,7 @@ pub fn App(cx: Scope) -> impl IntoView {
         <Router>
             <nav>
                 <A class="brand" href="">
-                    <img class="logo" src="/favicon.ico" />
+                    <img class="logo" src="/favicon-1.png" />
                     <span>"Refuel"</span>
                 </A>
                 // responsive
