@@ -3,7 +3,10 @@ use leptos::*;
 use leptos_meta::*;
 use leptos_router::*;
 
-struct RefuelStation {
+use serde::{Serialize, Deserialize};
+
+#[derive(Serialize, Deserialize, Debug, Clone)]
+pub struct RefuelStation {
     name: String,
     addr: String,
     price: [u8; 3],
@@ -53,6 +56,62 @@ pub fn App(cx: Scope) -> impl IntoView {
 
 #[component]
 fn Home(cx: Scope) -> impl IntoView {
+    let list = create_resource(
+        cx,
+        || (), //< run once
+        |_| async move {
+            get_current_prices().await.unwrap()
+        },
+    );
+
+    view! {
+        cx,
+        <div>
+            <Suspense fallback=move || view! { cx, <p>"Loading Price List..."</p> }>
+                <table class="primary">
+                    <thead>
+                        <tr>
+                            <th>"Refuel Station"</th>
+                            <th>"Address"</th>
+                            <th>"Price"</th>
+                            <th>"Updated"</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        {move || { list.read(cx).map(|list| list.into_iter()
+                            .map(|n| view! { cx,
+                                <tr>
+                                    <td><div>{n.name}</div></td>
+                                    <td><address>{n.addr}</address></td>
+                                    <td><span>{n.price[0]}","{n.price[1]}<sup>{n.price[2]}</sup></span></td>
+                                    <td><div>{format!("{}", n.updated.with_timezone(&Local).format("%Y-%m-%d %H:%M"))}</div></td>
+                                </tr>
+                            })
+                            .collect_view(cx)
+                        )}}
+                    </tbody>
+                </table>
+            </Suspense>
+        </div>
+        <Outlet/>
+    }
+}
+
+#[component]
+fn About(cx: Scope) -> impl IntoView {
+    view! {
+        cx,
+        <div>
+            <p>"It's me!"</p>
+        </div>
+    }
+}
+
+#[server(GetCurrentPrices, "/api", "GetCbor")]
+pub async fn get_current_prices() -> Result<Vec<RefuelStation>, ServerFnError> {
+    // simulate some time to acquire the informations
+    tokio::time::sleep(std::time::Duration::from_secs(5)).await;
+
     let list = vec![
         RefuelStation {
             name: "MyESSO".to_owned(),
@@ -79,44 +138,6 @@ fn Home(cx: Scope) -> impl IntoView {
             updated: Utc.with_ymd_and_hms(2023, 6, 4, 15, 15, 0).unwrap(),
         },
     ];
-    view! {
-        cx,
-        <div>
-            <table class="primary">
-                <thead>
-                    <tr>
-                        <th>"Refuel Station"</th>
-                        <th>"Address"</th>
-                        <th>"Price"</th>
-                        <th>"Updated"</th>
-                    </tr>
-                </thead>
-                <tbody>
-                    {
-                        list.into_iter()
-                            .map(|n| view! { cx,
-                                <tr>
-                                    <td><div>{n.name}</div></td>
-                                    <td><address>{n.addr}</address></td>
-                                    <td><span>{n.price[0]}","{n.price[1]}<sup>{n.price[2]}</sup></span></td>
-                                    <td><div>{format!("{}", n.updated.with_timezone(&Local).format("%Y-%m-%d %H:%M"))}</div></td>
-                                </tr>
-                            })
-                            .collect_view(cx)
-                    }
-                </tbody>
-            </table>
-        </div>
-        <Outlet/>
-    }
+    Ok(list)
 }
 
-#[component]
-fn About(cx: Scope) -> impl IntoView {
-    view! {
-        cx,
-        <div>
-            <p>"It's me!"</p>
-        </div>
-    }
-}

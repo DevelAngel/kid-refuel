@@ -25,6 +25,7 @@ leptos_meta = { version = "0.3", default-features = false }
 leptos_router = { version = "0.3", default-features = false, features = [ "stable" ] }
 leptos_dom = { version = "0.3", default-features = false }
 leptos_axum = { version = "0.3" }
+serde = { version = "1" }
 thiserror = { version = "1.0.40" }
 tokio = { version = "1", features = ["full"] }
 tracing = { version = "0.1.37" }

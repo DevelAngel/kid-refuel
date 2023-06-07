@@ -399,6 +399,7 @@ dependencies = [
  "js-sys",
  "num-integer",
  "num-traits",
+ "serde",
  "time",
  "wasm-bindgen",
  "winapi",
@@ -2381,6 +2382,8 @@ dependencies = [
  "leptos",
  "leptos_meta",
  "leptos_router",
+ "serde",
+ "tokio",
 ]
 
 [[package]]
