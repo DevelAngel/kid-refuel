@@ -28,7 +28,7 @@ serde = { version = "1.0.163", features = ["derive"] }
 thiserror = { workspace = true }
 tokio = { workspace = true, features = ["time"] }
 tower = { version = "0.4" }
-tower-http = { version = "0.4", features = ["fs"] }
+tower-http = { version = "0.4", features = ["fs", "trace"] }
 tracing = { workspace = true }
 tracing-subscriber = { workspace = true }
 url = "2.3.1"

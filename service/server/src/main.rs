@@ -27,6 +27,7 @@ use std::env;
 use std::path::PathBuf;
 use tokio::signal;
 use tokio::time::{self, Duration};
+use tower_http::trace::TraceLayer;
 use url::Url;
 
 use tracing_subscriber::EnvFilter;
@@ -199,15 +200,22 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
         // Generate the list of routes in your Leptos App
         let routes = generate_route_list(app).await;
 
-        let app = Router::new()
-            .route("/favicon.ico", get(file_and_error_handler))
-            .fallback(file_and_error_handler)
-            .with_state(leptos_options.clone())
+        let leptos_routes = Router::new()
             .leptos_routes(
-                leptos_options,
+                leptos_options.clone(),
                 routes,
                 app
             );
+
+        let other_routes = Router::new()
+            .route("/favicon.ico", get(file_and_error_handler))
+            .fallback(file_and_error_handler)
+            .with_state(leptos_options);
+
+        let app = Router::new()
+            .merge(other_routes)
+            .merge(leptos_routes)
+            .layer(TraceLayer::new_for_http());
 
         // run our app with hyper
         // `axum::Server` is a re-export of `hyper::Server`
