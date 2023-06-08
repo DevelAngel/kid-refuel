@@ -15,6 +15,8 @@ use crate::save::*;
 
 use crate::fallback::file_and_error_handler;
 
+use refuel_app::*;
+
 use leptos::*;
 use rand::prelude::*;
 use diesel::prelude::*;
@@ -197,6 +199,8 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
         let leptos_options = conf.leptos_options;
         let addr = leptos_options.site_addr;
 
+        _ = GetCurrentPrices::register();
+
         // Generate the list of routes in your Leptos App
         let routes = generate_route_list(app).await;
 
@@ -208,6 +212,7 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
             );
 
         let other_routes = Router::new()
+            .route("/api/*fn_name", get(leptos_axum::handle_server_fns).post(leptos_axum::handle_server_fns))
             .route("/favicon.ico", get(file_and_error_handler))
             .fallback(file_and_error_handler)
             .with_state(leptos_options);
