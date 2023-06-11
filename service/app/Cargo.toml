@@ -16,5 +16,5 @@ tokio = { workspace = true, features = ["time"], optional = true }
 
 [features]
 default = ["hydrate"]
-hydrate = ["leptos/hydrate", "leptos_meta/hydrate"]
-ssr = ["leptos/ssr", "leptos_meta/ssr", "dep:tokio"]
+hydrate = ["leptos/hydrate", "leptos_meta/hydrate", "leptos_router/hydrate"]
+ssr = ["leptos/ssr", "leptos_meta/ssr", "leptos_router/ssr", "dep:tokio"]
