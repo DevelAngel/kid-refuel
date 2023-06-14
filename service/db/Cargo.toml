@@ -1,0 +1,18 @@
+[package]
+name = "refuel-db"
+version.workspace = true
+authors.workspace = true
+edition = "2021"
+
+# See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
+
+[dependencies]
+chrono = { workspace = true }
+diesel = { version = "2.0.4", default-features = false, features = ["with-deprecated", "chrono", "sqlite"] }
+dotenvy = "0.15.7"
+lazy_static = "1.4.0"
+serde = { version = "1.0.163", features = ["derive"] }
+thiserror = { workspace = true }
+tokio = { workspace = true, features = ["time"] }
+tracing = { workspace = true }
+tracing-subscriber = { workspace = true }

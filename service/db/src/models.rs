@@ -5,7 +5,7 @@ use diesel::prelude::*;
 use chrono::{DateTime, NaiveDateTime, Utc};
 
 #[derive(Queryable)]
-pub(crate) struct RefuelStationPriceChange {
+pub struct RefuelStationPriceChange {
     pub name: String,
     pub addr: String,
     pub updated: DateTime<Utc>,
@@ -22,7 +22,7 @@ struct NewRefuelStationPriceChange<'a> {
 }
 
 impl RefuelStationPriceChange {
-    pub(crate) fn save(&self, conn: &mut SqliteConnection) -> bool {
+    pub fn save(&self, conn: &mut SqliteConnection) -> bool {
         let new = NewRefuelStationPriceChange::from(self);
         new.insert(conn)
     }

@@ -1,10 +1,8 @@
 mod download;
 mod error;
 mod load;
-mod models;
 mod parse;
 mod save;
-mod schema;
 
 mod fallback;
 
@@ -16,16 +14,14 @@ use crate::save::*;
 use crate::fallback::file_and_error_handler;
 
 use refuel_app::*;
+use refuel_db::*;
 
 use leptos::*;
 use rand::prelude::*;
-use diesel::prelude::*;
 
 use axum::{Router, routing::get};
 use clap::{Parser, Subcommand, Args};
-use dotenvy::dotenv;
 use leptos_axum::{generate_route_list, LeptosRoutes};
-use std::env;
 use std::path::PathBuf;
 use tokio::signal;
 use tokio::time::{self, Duration};
@@ -94,14 +90,6 @@ fn calc_duration<R: Rng>(rng: &mut R, interval: &Duration) -> Duration {
     } else {
         interval.saturating_sub(var)
     }
-}
-
-fn establish_connection() -> SqliteConnection {
-    dotenv().ok();
-
-    let database_url = env::var("DATABASE_URL").expect("DATABASE_URL must be set");
-    SqliteConnection::establish(&database_url)
-        .unwrap_or_else(|_| panic!("Error connecting to {}", database_url))
 }
 
 #[tracing::instrument(skip(url))]

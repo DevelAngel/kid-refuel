@@ -2389,6 +2389,21 @@ dependencies = [
 ]
 
 [[package]]
+name = "refuel-db"
+version = "0.2.0"
+dependencies = [
+ "chrono",
+ "diesel",
+ "dotenvy",
+ "lazy_static",
+ "serde",
+ "thiserror",
+ "tokio",
+ "tracing",
+ "tracing-subscriber",
+]
+
+[[package]]
 name = "refuel-front"
 version = "0.2.0"
 dependencies = [
@@ -2408,8 +2423,6 @@ dependencies = [
  "axum-macros",
  "chrono",
  "clap",
- "diesel",
- "dotenvy",
  "lazy_static",
  "leptos",
  "leptos_axum",
@@ -2418,6 +2431,7 @@ dependencies = [
  "leptos_router",
  "rand 0.8.5",
  "refuel-app",
+ "refuel-db",
  "regex",
  "reqwest",
  "scraper",

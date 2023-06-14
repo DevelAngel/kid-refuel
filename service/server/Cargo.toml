@@ -8,12 +8,11 @@ edition = "2021"
 
 [dependencies]
 refuel-app = { path = "../app", default-features = false, features = ["ssr"] }
+refuel-db = { path = "../db" }
 axum = { workspace = true, features = ["http2", "tracing"] }
 axum-macros = { workspace = true }
 chrono = { workspace = true }
 clap = { workspace = true }
-diesel = { version = "2.0.4", default-features = false, features = ["with-deprecated", "chrono", "sqlite"] }
-dotenvy = "0.15.7"
 lazy_static = "1.4.0"
 leptos = { workspace = true, features = ["serde", "ssr"] }
 leptos_meta = { workspace = true, features = ["ssr"] }

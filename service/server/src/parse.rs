@@ -1,5 +1,6 @@
 use crate::error::ParseError;
-use crate::models::RefuelStationPriceChange;
+
+use refuel_db::models::RefuelStationPriceChange;
 
 use scraper::{Html, ElementRef, Selector};
 
