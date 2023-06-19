@@ -1,19 +1,72 @@
 use crate::error::ParseError;
 
-use refuel_db::models::RefuelStationPriceChange;
+use refuel_db::prelude::*;
+
+use chrono::prelude::*;
 
 use scraper::{Html, ElementRef, Selector};
-
 use lazy_static::lazy_static;
 use regex::Regex;
-use chrono::{DateTime, TimeZone, Local};
 use std::collections::VecDeque;
-
 use tokio::try_join;
 
 use tracing::{debug, error};
 
 type Result<T> = std::result::Result<T, ParseError>;
+
+pub struct RefuelStation {
+    pub name: String,
+    pub addr: String,
+}
+
+pub struct PriceChange {
+    pub price: [u8; 3],
+    pub updated: DateTime<Utc>,
+}
+
+impl PriceChange {
+    fn convert_to_subcent(&self) -> i32 {
+        let price_eur = self.price[0] as i32;
+        let price_cent = self.price[1] as i32;
+        let price_subcent = self.price[2] as i32;
+        price_eur * 1000 + price_cent * 10 + price_subcent
+    }
+}
+
+pub struct RefuelStationPriceChange {
+    pub station: RefuelStation,
+    pub price_change: PriceChange,
+}
+
+pub struct RefuelStationPriceChangeWithId {
+    pub id: i32,
+    pub station: RefuelStation,
+    pub price_change: PriceChange,
+}
+
+impl RefuelStationPriceChange {
+    pub fn save(self, conn: &mut AnyConnection) -> RefuelStationPriceChangeWithId {
+        let rs = NewRefuelStation {
+            name: &self.station.name,
+            addr: &self.station.addr,
+        };
+        let rs_id = rs.save(conn).unwrap();
+
+        let pc = NewPriceChange {
+            station_id: rs_id,
+            updated: &self.price_change.updated.naive_utc(),
+            price: self.price_change.convert_to_subcent(),
+        };
+        let _pc_id = pc.save(conn).unwrap();
+
+        RefuelStationPriceChangeWithId {
+            id: rs_id,
+            station: self.station,
+            price_change: self.price_change,
+        }
+
+    }
+}
 
 #[tracing::instrument(skip(document))]
 pub(crate) async fn parse(document: &Html) -> Result<VecDeque<RefuelStationPriceChange>> {
@@ -34,8 +87,11 @@ pub(crate) async fn parse(document: &Html) -> Result<VecDeque<RefuelStationPrice
 
         match try_join!(name, addr, price, updated) {
             Ok((name, addr, price, updated)) => {
-                let updated = updated.into();
-                refuel_stations.push_back(RefuelStationPriceChange { name, addr, price, updated });
+                let station = RefuelStationPriceChange {
+                    station: RefuelStation { name, addr },
+                    price_change: PriceChange { price, updated: updated.into() },
+                };
+                refuel_stations.push_back(station);
             }
             Err(err) => {
                 match err {
@@ -115,7 +171,7 @@ async fn parse_updated<'a, 'b>(fragment: &ElementRef<'a>, selector: &'b Selector
 }
 
 #[tracing::instrument(skip(fragment))]
-async fn parse_price<'a, 'b>(fragment: &ElementRef<'a>, selector: &'b Selector) -> Result<u16> {
+async fn parse_price<'a, 'b>(fragment: &ElementRef<'a>, selector: &'b Selector) -> Result<[u8; 3]> {
     lazy_static! {
         static ref REGEX_INVALID: Regex = Regex::new(r"[\-]\.[\-]{2}").expect("invalid invalid-price regex");
         static ref REGEX: Regex = Regex::new(r"\b(?P<eur>\d)\.(?P<cent>\d{2})\b(?s:.+)\b(?P<subcent>\d)\b").expect("invalid price regex");
@@ -136,13 +192,12 @@ async fn parse_price<'a, 'b>(fragment: &ElementRef<'a>, selector: &'b Selector) 
             html: price.to_owned(),
             regex: REGEX.clone(),
         })?;
-    let eur: u16 = price.name("eur").expect("eur missing in regex").as_str().parse().expect("eur is no integer");
-    let cent: u16 = price.name("cent").expect("cent missing in regex").as_str().parse().expect("cent is no integer");
-    let subcent: u16 = price.name("subcent").expect("subcent missing in regex").as_str().parse().expect("subcent is no integer");
+    let eur: u8 = price.name("eur").expect("eur missing in regex").as_str().parse().expect("eur is no integer");
+    let cent: u8 = price.name("cent").expect("cent missing in regex").as_str().parse().expect("cent is no integer");
+    let subcent: u8 = price.name("subcent").expect("subcent missing in regex").as_str().parse().expect("subcent is no integer");
     assert!(subcent < 10);
     assert!(cent < 100);
 
-    let price = eur * 1000 + cent * 10 + subcent;
-    Ok(price)
+    Ok([eur, cent, subcent])
 }
 

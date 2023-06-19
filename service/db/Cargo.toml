@@ -8,7 +8,7 @@ edition = "2021"
 
 [dependencies]
 chrono = { workspace = true }
-diesel = { version = "2.0.4", default-features = false, features = ["with-deprecated", "chrono", "sqlite"] }
+diesel = { version = "2.1.0", default-features = false, features = ["with-deprecated", "chrono", "sqlite", "returning_clauses_for_sqlite_3_35"] }
 dotenvy = "0.15.7"
 lazy_static = "1.4.0"
 serde = { version = "1.0.163", features = ["derive"] }

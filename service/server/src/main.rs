@@ -112,26 +112,41 @@ async fn cmd_run_single(url: &Url, downloaded: &Option<PathBuf>, dry_run: bool) 
     };
 
     let refuel_stations = parse(&document).await?;
-
-    let conn = &mut establish_connection();
-
-    let mut saved = 0;
-    for rs in refuel_stations.iter() {
-        let price = rs.price as f32 / 1000f32;
-        if rs.save(conn) && !dry_run {
-            saved += 1;
-            debug!("name: {}, addr: {}, updated: {}, price: {:.3}", rs.name, rs.addr, rs.updated, price);
-        } else if downloaded.is_some() || dry_run {
-            // print all
-            debug!("name: {}, addr: {}, updated: {}, price: {:.3}", rs.name, rs.addr, rs.updated, price);
+    let fetched = refuel_stations.len();
+    if dry_run {
+        for rs in refuel_stations.iter() {
+            let name = &rs.station.name;
+            let addr = &rs.station.addr;
+            let updated = &rs.price_change.updated;
+            let price = &rs.price_change.price;
+            let price = price[0] as u16 * 1000 + price[1] as u16 * 10 + price[2] as u16;
+            let price = price as f32 / 1000f32;
+            debug!("name: {name}, addr: {addr}, updated: {updated}, price: {price:.3}");
+        }
+        info!("prices fetched: {fetched}");
+        warn!("price changes not saved (dry run)");
+    } else {
+        info!("prices fetched: {fetched}");
+        let conn = &mut establish_connection_sqlite();
+        let refuel_stations: Vec<_> = refuel_stations
+            .into_iter()
+            .map(|rs| rs.save(conn))
+            .collect();
+        for rs in refuel_stations.iter() {
+            let id = &rs.id;
+            let name = &rs.station.name;
+            let addr = &rs.station.addr;
+            let updated = &rs.price_change.updated;
+            let price = &rs.price_change.price;
+            let price = price[0] as u16 * 1000 + price[1] as u16 * 10 + price[2] as u16;
+            let price = price as f32 / 1000f32;
+            debug!("id: {id}, name: {name}, addr: {addr}, updated: {updated}, price: {price:.3}");
         }
     }
-    if dry_run {
-        info!("prices fetched: {fetched}", fetched = refuel_stations.len());
-        warn!("price changes not saved");
-    } else {
-        info!("price changes saved: {saved} / {fetched}", fetched = refuel_stations.len());
-    }
+
+
+
+
     Ok(())
 }
 
