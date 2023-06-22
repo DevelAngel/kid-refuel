@@ -59,6 +59,7 @@ impl Default for AppState {
             RefuelStationData::new("MyHEM", "Wittestr. 16, 13509 Berlin", [1, 76, 9]),
             RefuelStationData::new("MySTAR", "Prenzlauer Promenade 72-73, 13089 Berlin", [1, 77, 9]),
             RefuelStationData::new("MySHELL", "Bundesallee 200, 10717 Berlin", [1, 82, 9]),
+            RefuelStationData::new("MyJET", "Storkower Straße 126-130, 10407 Berlin", [1, 76, 9]),
         ];
         Self { data }
     }
