@@ -2394,6 +2394,7 @@ dependencies = [
  "leptos",
  "leptos_meta",
  "leptos_router",
+ "refuel-db",
  "serde",
  "tokio",
 ]

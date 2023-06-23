@@ -6,7 +6,7 @@ use leptos_router::*;
 use serde::{Serialize, Deserialize};
 
 #[derive(Serialize, Deserialize, Debug, Clone)]
-pub struct RefuelStation {
+pub struct AppRefuelStation {
     name: String,
     addr: String,
     price: [u8; 3],
@@ -108,36 +108,29 @@ fn About(cx: Scope) -> impl IntoView {
 }
 
 #[server(GetCurrentPrices, "/api", "GetCbor")]
-pub async fn get_current_prices() -> Result<Vec<RefuelStation>, ServerFnError> {
+pub async fn get_current_prices() -> Result<Vec<AppRefuelStation>, ServerFnError> {
+    use refuel_db::establish_connection_sqlite;
+    use refuel_db::prelude::*;
+
+    impl From<RefuelStationPriceChange> for AppRefuelStation {
+        fn from(src: RefuelStationPriceChange) -> Self {
+            Self {
+                name: src.name,
+                addr: src.addr,
+                price: src.price,
+                updated: src.updated,
+            }
+        }
+    }
+
     // simulate some time to acquire the informations
     tokio::time::sleep(std::time::Duration::from_secs(5)).await;
 
-    let list = vec![
-        RefuelStation {
-            name: "MyESSO".to_owned(),
-            addr: "Marienfelder Chaussee 171, 12349 Berlin".to_owned(),
-            price: [1, 78, 9],
-            updated: Utc.with_ymd_and_hms(2023, 6, 4, 13, 0, 0).unwrap(),
-        },
-        RefuelStation {
-            name: "MyJET".to_owned(),
-            addr: "Rhinstr. 240, 13055 Berlin".to_owned(),
-            price: [1, 79, 8],
-            updated: Utc.with_ymd_and_hms(2023, 6, 4, 12, 0, 0).unwrap(),
-        },
-        RefuelStation {
-            name: "MyTotalEnergies".to_owned(),
-            addr: "Landsberger Allee 376, 12681 Berlin".to_owned(),
-            price: [1, 81, 9],
-            updated: Utc.with_ymd_and_hms(2023, 6, 4, 12, 30, 0).unwrap(),
-        },
-        RefuelStation {
-            name: "MyAGIP ENI".to_owned(),
-            addr: "Dietzgenstr. 127, 13158 Berlin".to_owned(),
-            price: [1, 80, 9],
-            updated: Utc.with_ymd_and_hms(2023, 6, 4, 15, 15, 0).unwrap(),
-        },
-    ];
+    let conn = &mut establish_connection_sqlite();
+    let list = RefuelStationPriceChange::load_all(conn);
+    let list = list.into_iter()
+        .map(|rs| AppRefuelStation::from(rs))
+        .collect();
     Ok(list)
 }
 

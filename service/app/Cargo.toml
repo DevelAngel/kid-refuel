@@ -7,6 +7,7 @@ edition = "2021"
 # See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
 
 [dependencies]
+refuel-db = { path = "../db", optional = true }
 chrono = { workspace = true, features = ["serde"] }
 leptos = { workspace = true, features = ["serde"] }
 leptos_meta = { workspace = true }
@@ -17,4 +18,4 @@ tokio = { workspace = true, features = ["time"], optional = true }
 [features]
 default = ["hydrate"]
 hydrate = ["leptos/hydrate", "leptos_meta/hydrate", "leptos_router/hydrate"]
-ssr = ["leptos/ssr", "leptos_meta/ssr", "leptos_router/ssr", "dep:tokio"]
+ssr = ["leptos/ssr", "leptos_meta/ssr", "leptos_router/ssr", "dep:refuel-db", "dep:tokio"]

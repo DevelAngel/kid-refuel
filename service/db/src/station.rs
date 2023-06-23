@@ -3,7 +3,7 @@ use crate::schema::stations;
 
 use diesel::prelude::*;
 
-#[derive(Queryable, Selectable)]
+#[derive(Queryable, Selectable, Debug)]
 #[diesel(table_name = stations)]
 pub struct RefuelStation {
     pub id: Option<i32>,
