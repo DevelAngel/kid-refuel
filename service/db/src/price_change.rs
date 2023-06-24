@@ -30,21 +30,60 @@ impl RefuelStationPriceChange {
         }
     }
 
+    pub fn load_current(conn: &mut AnyConnection) -> Vec<Self> {
+        match conn {
+            AnyConnection::Sqlite(conn) => Self::load_curr_sqlite(conn),
+        }
+    }
+
     fn load_all_sqlite(conn: &mut SqliteConnection) -> Vec<Self> {
         use crate::schema::price_changes::dsl::*;
         use crate::schema::stations::dsl::*;
         let pc: Vec<_> = stations
             .inner_join(price_changes)
             .select((name, addr, updated, price))
+            .order_by(updated.desc())
+            .then_order_by(price.asc())
+            .then_order_by(name.asc())
+            .then_order_by(addr.asc())
             .get_results::<(String, String, NaiveDateTime, i32)>(conn)
             .unwrap();
 
         pc.into_iter()
-            .map(|(curr_name, curr_addr, curr_updated, curr_price)| Self {
-                name: curr_name,
-                addr: curr_addr,
-                updated: Utc.from_utc_datetime(&curr_updated),
-                price: convert_price(curr_price),
+            .map(|(cname, caddr, cupdated, cprice)| Self {
+                name: cname,
+                addr: caddr,
+                updated: Utc.from_utc_datetime(&cupdated),
+                price: convert_price(cprice),
+            })
+            .collect()
+    }
+
+    fn load_curr_sqlite(conn: &mut SqliteConnection) -> Vec<Self> {
+        use crate::schema::price_changes::dsl::*;
+        use crate::schema::stations::dsl::*;
+        use diesel::dsl::max;
+        let p2 = diesel::alias!(crate::schema::price_changes as p2);
+        let pc: Vec<_> = stations
+            .inner_join(price_changes)
+            .filter(
+                updated.nullable().eq(p2
+                    .filter(station_id.eq(p2.field(station_id)))
+                    .select(max(p2.field(updated)))
+                    .single_value()),
+            )
+            .select((name, addr, updated, price))
+            .order_by(name.asc())
+            .then_order_by(addr.asc())
+            .load::<(String, String, NaiveDateTime, i32)>(conn)
+            .unwrap();
+
+        pc.into_iter()
+            .map(|(cname, caddr, cupdated, cprice)| Self {
+                name: cname,
+                addr: caddr,
+                updated: Utc.from_utc_datetime(&cupdated),
+                price: convert_price(cprice),
             })
             .collect()
     }

@@ -34,8 +34,16 @@ Show all prices changes ordered by datetime (newest first):
 sqlite3 test.db "SELECT * FROM price_changes ORDER BY updated DESC;"
 ```
 
-Show all latest prices changes for each station:
+Show all latest price changes for each station:
 
 ```sh
 sqlite3 test.db "SELECT id,station_id,MAX(updated),price FROM price_changes GROUP BY station_id ORDER BY updated DESC;"
 ```
+
+Show all latest price changes for each station including station name and addr (the second one does not show the ids):
+
+```sh
+sqlite3 test.db "SELECT id, station_id, updated, price FROM price_changes p1 WHERE updated = (SELECT MAX(updated) FROM price_changes p2 WHERE p1.station_id = p2.station_id) ORDER BY station_id;"
+sqlite3 test.db "SELECT s.id, p.id, p.updated, p.price, s.name, s.addr FROM stations s INNER JOIN price_changes p ON s.id = p.station_id WHERE updated = (SELECT MAX(updated) FROM price_changes p2 WHERE p.station_id = p2.station_id) ORDER BY station_id;"
+```
+Note: For postgresql, it would be possible to use the "distinct on" clause to shorten the query.

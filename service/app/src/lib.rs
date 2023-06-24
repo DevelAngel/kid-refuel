@@ -56,7 +56,7 @@ pub fn App(cx: Scope) -> impl IntoView {
 
 #[component]
 fn Home(cx: Scope) -> impl IntoView {
-    let list = create_resource(
+    let list_current = create_resource(
         cx,
         || (), //< run once
         |_| async move {
@@ -64,10 +64,18 @@ fn Home(cx: Scope) -> impl IntoView {
         },
     );
 
+    let list_all = create_resource(
+        cx,
+        || (), //< run once
+        |_| async move {
+            get_all_prices().await.unwrap()
+        },
+    );
+
     view! {
         cx,
         <div>
-            <Suspense fallback=move || view! { cx, <p>"Loading Price List..."</p> }>
+            <Suspense fallback=move || view! { cx, <p>"Loading Current Price List..."</p> }>
                 <table class="primary">
                     <thead>
                         <tr>
@@ -78,7 +86,34 @@ fn Home(cx: Scope) -> impl IntoView {
                         </tr>
                     </thead>
                     <tbody>
-                        {move || { list.read(cx).map(|list| list.into_iter()
+                        {move || { list_current.read(cx).map(|list| list.into_iter()
+                            .map(|n| view! { cx,
+                                <tr>
+                                    <td><div>{n.name}</div></td>
+                                    <td><address>{n.addr}</address></td>
+                                    <td><span>{n.price[0]}","{n.price[1]}<sup>{n.price[2]}</sup></span></td>
+                                    <td><div>{format!("{}", n.updated.with_timezone(&Local).format("%Y-%m-%d %H:%M"))}</div></td>
+                                </tr>
+                            })
+                            .collect_view(cx)
+                        )}}
+                    </tbody>
+                </table>
+            </Suspense>
+        </div>
+        <div>
+            <Suspense fallback=move || view! { cx, <p>"Loading Price List with History..."</p> }>
+                <table class="primary">
+                    <thead>
+                        <tr>
+                            <th>"Refuel Station"</th>
+                            <th>"Address"</th>
+                            <th>"Price"</th>
+                            <th>"Updated"</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        {move || { list_all.read(cx).map(|list| list.into_iter()
                             .map(|n| view! { cx,
                                 <tr>
                                     <td><div>{n.name}</div></td>
@@ -107,24 +142,43 @@ fn About(cx: Scope) -> impl IntoView {
     }
 }
 
+#[cfg(feature = "ssr")]
+use refuel_db::prelude::*;
+
+#[cfg(feature = "ssr")]
+impl From<RefuelStationPriceChange> for AppRefuelStation {
+    fn from(src: RefuelStationPriceChange) -> Self {
+        Self {
+            name: src.name,
+            addr: src.addr,
+            price: src.price,
+            updated: src.updated,
+        }
+    }
+}
+
 #[server(GetCurrentPrices, "/api", "GetCbor")]
 pub async fn get_current_prices() -> Result<Vec<AppRefuelStation>, ServerFnError> {
     use refuel_db::establish_connection_sqlite;
-    use refuel_db::prelude::*;
-
-    impl From<RefuelStationPriceChange> for AppRefuelStation {
-        fn from(src: RefuelStationPriceChange) -> Self {
-            Self {
-                name: src.name,
-                addr: src.addr,
-                price: src.price,
-                updated: src.updated,
-            }
-        }
-    }
 
     // simulate some time to acquire the informations
     tokio::time::sleep(std::time::Duration::from_secs(5)).await;
+
+    let conn = &mut establish_connection_sqlite();
+    let list = RefuelStationPriceChange::load_current(conn);
+    let list = list.into_iter()
+        .map(|rs| AppRefuelStation::from(rs))
+        .collect();
+    Ok(list)
+}
+
+#[server(GetAllPrices, "/api", "GetCbor")]
+pub async fn get_all_prices() -> Result<Vec<AppRefuelStation>, ServerFnError> {
+    use refuel_db::establish_connection_sqlite;
+    use refuel_db::prelude::*;
+
+    // simulate some time to acquire the informations
+    tokio::time::sleep(std::time::Duration::from_secs(1)).await;
 
     let conn = &mut establish_connection_sqlite();
     let list = RefuelStationPriceChange::load_all(conn);
@@ -133,4 +187,3 @@ pub async fn get_current_prices() -> Result<Vec<AppRefuelStation>, ServerFnError
         .collect();
     Ok(list)
 }
-
