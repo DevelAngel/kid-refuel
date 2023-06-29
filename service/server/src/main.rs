@@ -13,7 +13,7 @@ use crate::save::*;
 
 use crate::fallback::file_and_error_handler;
 
-use refuel_app::*;
+use refuel_app::prelude::*;
 use refuel_db::*;
 
 use leptos::*;
@@ -177,8 +177,6 @@ async fn cmd_run_loop(url: &Url, dry_run: bool) -> Result<(), Box<dyn std::error
 }
 
 fn app(cx: leptos::Scope) -> impl IntoView {
-    use refuel_app::*;
-
     view! { cx, <App /> }
 }
 
@@ -202,7 +200,10 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
         let leptos_options = conf.leptos_options;
         let addr = leptos_options.site_addr;
 
+        // if server function is not registered,
+        // a bad request (400) will be answered
         _ = GetCurrentPrices::register();
+        _ = GetAllPrices::register();
 
         // Generate the list of routes in your Leptos App
         let routes = generate_route_list(app).await;

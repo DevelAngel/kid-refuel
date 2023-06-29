@@ -47,7 +47,7 @@ impl RefuelStationPriceChange {
             .then_order_by(name.asc())
             .then_order_by(addr.asc())
             .get_results::<(String, String, NaiveDateTime, i32)>(conn)
-            .unwrap();
+            .expect("sql failed");
 
         pc.into_iter()
             .map(|(cname, caddr, cupdated, cprice)| Self {
@@ -76,7 +76,7 @@ impl RefuelStationPriceChange {
             .order_by(name.asc())
             .then_order_by(addr.asc())
             .load::<(String, String, NaiveDateTime, i32)>(conn)
-            .unwrap();
+            .expect("sql failedd");
 
         pc.into_iter()
             .map(|(cname, caddr, cupdated, cprice)| Self {

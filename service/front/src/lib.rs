@@ -1,7 +1,8 @@
+use refuel_app::prelude::App;
+
 use wasm_bindgen::prelude::wasm_bindgen;
 
 use leptos::*;
-use refuel_app::*;
 
 #[wasm_bindgen]
 pub fn hydrate() {
