@@ -5,7 +5,7 @@ use diesel::prelude::*;
 
 #[derive(Queryable, Selectable, Debug)]
 #[diesel(table_name = stations)]
-pub struct RefuelStation {
+pub struct Station {
     pub id: Option<i32>,
     pub name: String,
     pub addr: String,
@@ -13,12 +13,12 @@ pub struct RefuelStation {
 
 #[derive(Insertable)]
 #[diesel(table_name = stations)]
-pub struct NewRefuelStation<'a> {
+pub struct NewStation<'a> {
     pub name: &'a str,
     pub addr: &'a str,
 }
 
-impl<'a> NewRefuelStation<'a> {
+impl<'a> NewStation<'a> {
     pub fn save(self, conn: &mut AnyConnection) -> Option<i32> {
         match conn {
             AnyConnection::Sqlite(conn) => self.save_sqlite(conn),

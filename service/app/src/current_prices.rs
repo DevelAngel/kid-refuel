@@ -1,4 +1,4 @@
-use crate::types::AppRefuelStation;
+use crate::types::StationPriceChange;
 
 use chrono::prelude::*;
 use leptos::*;
@@ -48,17 +48,17 @@ pub fn CurrentPrices(cx: Scope) -> impl IntoView {
 }
 
 #[server(GetCurrentPrices, "/api", "GetCbor")]
-pub async fn get_current_prices() -> Result<Vec<AppRefuelStation>, ServerFnError> {
+pub async fn get_current_prices() -> Result<Vec<StationPriceChange>, ServerFnError> {
     use refuel_db::establish_connection_sqlite;
-    use refuel_db::prelude::*;
+    use refuel_db::prelude::StationPriceChange as DBStationPriceChange;
 
     // simulate some time to acquire the informations
     //tokio::time::sleep(std::time::Duration::from_secs(1)).await;
 
     let conn = &mut establish_connection_sqlite();
-    let list = StationPriceChange::load_current(conn);
+    let list = DBStationPriceChange::load_current(conn);
     let list = list.into_iter()
-        .map(|rs| AppRefuelStation::from(rs))
+        .map(|rs| StationPriceChange::from(rs))
         .collect();
     Ok(list)
 }

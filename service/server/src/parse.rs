@@ -14,7 +14,7 @@ use tracing::{debug, error};
 
 type Result<T> = std::result::Result<T, ParseError>;
 
-pub struct RefuelStation {
+pub struct Station {
     pub name: String,
     pub addr: String,
 }
@@ -33,20 +33,20 @@ impl PriceChange {
     }
 }
 
-pub struct RefuelStationPriceChange {
-    pub station: RefuelStation,
+pub struct StationPriceChange {
+    pub station: Station,
     pub price_change: PriceChange,
 }
 
-pub struct RefuelStationPriceChangeWithId {
+pub struct StationPriceChangeWithId {
     pub id: i32,
-    pub station: RefuelStation,
+    pub station: Station,
     pub price_change: PriceChange,
 }
 
-impl RefuelStationPriceChange {
-    pub fn save(self, conn: &mut AnyConnection) -> RefuelStationPriceChangeWithId {
-        let rs = NewRefuelStation {
+impl StationPriceChange {
+    pub fn save(self, conn: &mut AnyConnection) -> StationPriceChangeWithId {
+        let rs = NewStation {
             name: &self.station.name,
             addr: &self.station.addr,
         };
@@ -59,7 +59,7 @@ impl RefuelStationPriceChange {
         };
         let _pc_id = pc.save(conn).unwrap();
 
-        RefuelStationPriceChangeWithId {
+        StationPriceChangeWithId {
             id: rs_id,
             station: self.station,
             price_change: self.price_change,
@@ -69,7 +69,7 @@ impl RefuelStationPriceChange {
 }
 
 #[tracing::instrument(skip(document))]
-pub(crate) async fn parse(document: &Html) -> Result<VecDeque<RefuelStationPriceChange>> {
+pub(crate) async fn parse(document: &Html) -> Result<VecDeque<StationPriceChange>> {
     let selector_pricelist = Selector::parse(r#".PriceList"#).expect("invalid list selector");
     let selector_priceitem = Selector::parse(r#".PriceList__item:not(.list-ad)"#).expect("invalid list item selector");
     let selector_name = Selector::parse(r#".PriceList__itemTitle"#).expect("invalid name selector");
@@ -87,8 +87,8 @@ pub(crate) async fn parse(document: &Html) -> Result<VecDeque<RefuelStationPrice
 
         match try_join!(name, addr, price, updated) {
             Ok((name, addr, price, updated)) => {
-                let station = RefuelStationPriceChange {
-                    station: RefuelStation { name, addr },
+                let station = StationPriceChange {
+                    station: Station { name, addr },
                     price_change: PriceChange { price, updated: updated.into() },
                 };
                 refuel_stations.push_back(station);

@@ -1,12 +1,12 @@
 use crate::any_connection::AnyConnection;
 use crate::schema::price_changes;
-use crate::station::RefuelStation;
+use crate::station::Station;
 
 use chrono::prelude::*;
 use diesel::prelude::*;
 
 #[derive(Queryable, Selectable, Identifiable, Associations, Debug)]
-#[diesel(belongs_to(RefuelStation, foreign_key = station_id))]
+#[diesel(belongs_to(Station))]
 #[diesel(table_name = price_changes)]
 pub struct PriceChange {
     pub id: Option<i32>,
