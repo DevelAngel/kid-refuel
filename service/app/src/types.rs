@@ -3,7 +3,7 @@ use serde::{Deserialize, Serialize};
 use chrono::prelude::*;
 
 #[cfg(feature = "ssr")]
-use refuel_db::prelude::RefuelStationPriceChange;
+use refuel_db::prelude::StationPriceChange;
 
 #[derive(Serialize, Deserialize, Debug, Clone)]
 pub struct AppRefuelStation {
@@ -14,8 +14,8 @@ pub struct AppRefuelStation {
 }
 
 #[cfg(feature = "ssr")]
-impl From<RefuelStationPriceChange> for AppRefuelStation {
-    fn from(src: RefuelStationPriceChange) -> Self {
+impl From<StationPriceChange> for AppRefuelStation {
+    fn from(src: StationPriceChange) -> Self {
         Self {
             name: src.name,
             addr: src.addr,

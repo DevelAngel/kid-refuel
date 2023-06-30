@@ -4,6 +4,7 @@ mod any_connection;
 mod price_change;
 mod schema;
 mod station;
+mod station_price_change;
 
 use crate::any_connection::AnyConnection;
 

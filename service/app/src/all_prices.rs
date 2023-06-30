@@ -54,7 +54,7 @@ pub async fn get_all_prices() -> Result<Vec<AppRefuelStation>, ServerFnError> {
     //tokio::time::sleep(std::time::Duration::from_secs(1)).await;
 
     let conn = &mut establish_connection_sqlite();
-    let list = RefuelStationPriceChange::load_all(conn);
+    let list = StationPriceChange::load_all(conn);
     let list = list.into_iter()
         .map(|rs| AppRefuelStation::from(rs))
         .collect();
