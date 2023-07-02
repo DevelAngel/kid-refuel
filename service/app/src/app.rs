@@ -1,6 +1,8 @@
 use crate::about::About;
 use crate::all_prices::AllPrices;
 use crate::current_prices::CurrentPrices;
+use crate::price_history::PriceHistory;
+use crate::price_history::StationPriceHistory;
 
 use leptos::*;
 use leptos_meta::*;
@@ -27,6 +29,7 @@ pub fn App(cx: Scope) -> impl IntoView {
                 <label for="bmenub" class="burger pseudo button">"MENU"</label>
                 // menu
                 <div class="menu">
+                    <A href="stations" class="pseudo button icon-picture">"Price History"</A>
                     <A href="all" class="pseudo button icon-picture">"All Prices"</A>
                     <A href="about" class="pseudo button icon-picture">"About"</A>
                 </div>
@@ -37,6 +40,20 @@ pub fn App(cx: Scope) -> impl IntoView {
                         path=""
                         view=move |cx| view! { cx,  <CurrentPrices/> }
                     >
+                    </Route>
+                    <Route
+                        path="stations"
+                        view=move |cx| view! { cx,  <PriceHistory/> }
+                    >
+                        <Route
+                            path=":id"
+                            view=move |cx| view! { cx,  <StationPriceHistory/> }
+                        />
+                        // fallback if :id is missing from URL
+                        <Route
+                            path=""
+                            view=move |cx| view! { cx,  <p>"Select a station"</p> }
+                        />
                     </Route>
                     <Route
                         path="all"

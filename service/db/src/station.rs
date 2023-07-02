@@ -11,6 +11,32 @@ pub struct Station {
     pub addr: String,
 }
 
+impl Station {
+    pub fn load_all(conn: &mut AnyConnection) -> Vec<Self> {
+        match conn {
+            AnyConnection::Sqlite(conn) => Self::load_all_sqlite(conn),
+        }
+    }
+
+    fn load_all_sqlite(conn: &mut SqliteConnection) -> Vec<Self> {
+        use crate::schema::stations::dsl::*;
+        let s: Vec<_> = stations
+            .select((id, name, addr))
+            .order_by(name.asc())
+            .then_order_by(addr.asc())
+            .get_results::<(Option<i32>, String, String)>(conn)
+            .expect("sql failed");
+
+        s.into_iter()
+            .map(|(cid, cname, caddr)| Self {
+                id: cid,
+                name: cname,
+                addr: caddr,
+            })
+            .collect()
+    }
+}
+
 #[derive(Insertable)]
 #[diesel(table_name = stations)]
 pub struct NewStation<'a> {

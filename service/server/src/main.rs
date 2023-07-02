@@ -204,6 +204,8 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
         // a bad request (400) will be answered
         _ = GetCurrentPrices::register();
         _ = GetAllPrices::register();
+        _ = GetStations::register();
+        _ = GetPriceHistory::register();
 
         // Generate the list of routes in your Leptos App
         let routes = generate_route_list(app).await;
