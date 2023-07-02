@@ -31,6 +31,7 @@ pub fn StationList(cx: Scope) -> impl IntoView {
                 <table class="primary">
                     <thead>
                         <tr>
+                            <th>"ID"</th>
                             <th>"Refuel Station"</th>
                             <th>"Address"</th>
                         </tr>
@@ -39,6 +40,7 @@ pub fn StationList(cx: Scope) -> impl IntoView {
                         {move || { list.read(cx).map(|list| list.into_iter()
                             .map(|n| view! { cx,
                                 <tr>
+                                    <td><div><A href={n.id.to_string()}>{n.id}</A></div></td>
                                     <td><div>{n.name}</div></td>
                                     <td><address>{n.addr}</address></td>
                                 </tr>
