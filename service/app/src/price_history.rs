@@ -54,11 +54,13 @@ pub fn StationList(cx: Scope) -> impl IntoView {
 
 #[component]
 pub fn StationPriceHistory(cx: Scope) -> impl IntoView {
+    let params = use_params_map(cx);
+
     let list = create_resource(
         cx,
-        || (), //< run once
-        |_| async move {
-            get_price_history(1).await.unwrap()
+        move || params.with(|p| p.get("id").cloned().unwrap_or_default()),
+        move |id| async move {
+            get_price_history(id.parse::<i32>().expect("station id is no number")).await.unwrap()
         },
     );
 
