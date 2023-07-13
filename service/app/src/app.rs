@@ -16,24 +16,9 @@ pub fn App(cx: Scope) -> impl IntoView {
         cx,
         <Title text="Refuel WebApp"/>
         <Link rel="shortcut icon" type_="image/ico" href="/favicon.ico"/>
-        <Stylesheet id="picnic" href="/picnic.min.css"/>
-        <Stylesheet id="leptos" href="/pkg/refuel.css"/>
+        <Stylesheet id="refuel" href="/tailwind.css"/>
         <Router>
-            <nav>
-                <A class="brand" href="">
-                    <img class="logo" src="/favicon-1.png" />
-                    <span>"Refuel"</span>
-                </A>
-                // responsive
-                <input id="bmenub" type="checkbox" class="show"/>
-                <label for="bmenub" class="burger pseudo button">"MENU"</label>
-                // menu
-                <div class="menu">
-                    <A href="stations" class="pseudo button icon-picture">"Price History"</A>
-                    <A href="all" class="pseudo button icon-picture">"All Prices"</A>
-                    <A href="about" class="pseudo button icon-picture">"About"</A>
-                </div>
-            </nav>
+            <NavBar/>
             <main>
                 <Routes>
                     <Route
@@ -66,5 +51,44 @@ pub fn App(cx: Scope) -> impl IntoView {
                 </Routes>
             </main>
         </Router>
+    }
+}
+
+#[component]
+pub fn NavBar(cx: Scope) -> impl IntoView {
+    use std::ops::Not;
+
+    let (menu_hidden, toggle_menu) = create_signal(cx, true);
+
+    view! {
+        cx,
+        <nav class="flex flex-wrap items-center justify-between w-full py-4 md:py-0 px-4 text-lg text-gray-700 bg-white">
+            <A class="flex px-4 justify-between cursor-pointer" href="">
+                <img class="w-6 h-6" alt="Refuel" src="/favicon-1.png"/>
+                <span>"Refuel"</span>
+            </A>
+            // Hamburger Icon
+            <svg xmlns="<http://www.w3.org/2000/svg>"
+                 id="menu-button"
+                 class="md:hidden block h-6 w-6 cursor-pointer"
+                 fill="none" viewBox="0 0 24 24"
+                 stroke="currentColor"
+                 on:click=move |_| { toggle_menu.update(|m| *m = m.not()); }
+            >
+                <path stroke-linecap="round"
+                      stroke-linejoin="round"
+                      stroke-width="2"
+                      d="M4 6h16M4 12h16M4 18h16"
+                />
+            </svg>
+            // menu
+            <div id="menu" class:hidden=move || menu_hidden.get() class="w-full md:flex md:w-auto md:items-center md:justify-between">
+                <ul class="text-base text-gray-700 pt-4 md:flex md:pt-0 md:justify-between">
+                    <li><A href="stations" class="py-2 block md:p-4 hover:text-purple-400">"Price History"</A></li>
+                    <li><A href="all" class="py-2 block md:p-4 hover:text-purple-400">"All Prices"</A></li>
+                    <li><A href="about" class="py-2 block md:p-4 hover:text-purple-400">"About"</A></li>
+                </ul>
+            </div>
+        </nav>
     }
 }

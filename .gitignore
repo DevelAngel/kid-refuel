@@ -12,3 +12,6 @@ target/
 # Diesel
 .env
 *.db
+
+# generated css by tailwind
+service/assets/tailwind.css
