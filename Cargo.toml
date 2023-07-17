@@ -20,11 +20,11 @@ axum = { version = "0.6.18" }
 axum-macros = { version = "0.3.7" }
 chrono = { version = "0.4.24" }
 clap = { version = "4.2.5", features = ["derive"] }
-leptos = { version = "0.3", default-features = false, features = ["stable"] }
-leptos_meta = { version = "0.3", default-features = false }
-leptos_router = { version = "0.3", default-features = false, features = [ "stable" ] }
-leptos_dom = { version = "0.3", default-features = false }
-leptos_axum = { version = "0.3" }
+leptos = { version = "0.4", default-features = false }
+leptos_meta = { version = "0.4", default-features = false }
+leptos_router = { version = "0.4", default-features = false }
+leptos_dom = { version = "0.4", default-features = false }
+leptos_axum = { version = "0.4" }
 serde = { version = "1" }
 thiserror = { version = "1.0.40" }
 tokio = { version = "1", features = ["full"] }

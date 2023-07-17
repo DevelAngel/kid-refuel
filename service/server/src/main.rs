@@ -200,33 +200,28 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
         let leptos_options = conf.leptos_options;
         let addr = leptos_options.site_addr;
 
+        // no longer needed since leptos 0.4
         // if server function is not registered,
         // a bad request (400) will be answered
-        _ = GetCurrentPrices::register();
-        _ = GetAllPrices::register();
-        _ = GetStations::register();
-        _ = GetPriceHistory::register();
+        //_ = GetCurrentPrices::register();
+        //_ = GetAllPrices::register();
+        //_ = GetStations::register();
+        //_ = GetPriceHistory::register();
 
         // Generate the list of routes in your Leptos App
         let routes = generate_route_list(app).await;
 
-        let leptos_routes = Router::new()
-            .leptos_routes(
-                leptos_options.clone(),
-                routes,
-                app
-            );
-
-        let other_routes = Router::new()
+        let app = Router::new()
             .route("/api/*fn_name", get(leptos_axum::handle_server_fns).post(leptos_axum::handle_server_fns))
             .route("/favicon.ico", get(file_and_error_handler))
+            .leptos_routes(
+                &leptos_options,
+                routes,
+                app
+            )
             .fallback(file_and_error_handler)
+            .layer(TraceLayer::new_for_http())
             .with_state(leptos_options);
-
-        let app = Router::new()
-            .merge(other_routes)
-            .merge(leptos_routes)
-            .layer(TraceLayer::new_for_http());
 
         // run our app with hyper
         // `axum::Server` is a re-export of `hyper::Server`

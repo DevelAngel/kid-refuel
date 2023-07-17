@@ -54,7 +54,7 @@ pub fn App(cx: Scope) -> impl IntoView {
     }
 }
 
-#[component]
+#[component(transparent)]
 pub fn NavBar(cx: Scope) -> impl IntoView {
     use std::ops::Not;
 
