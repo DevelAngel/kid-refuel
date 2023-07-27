@@ -1,4 +1,5 @@
 use crate::types::StationPriceChange;
+use crate::price_list::PriceListItem;
 
 use chrono::prelude::*;
 use leptos::*;
@@ -15,33 +16,14 @@ pub fn AllPrices(cx: Scope) -> impl IntoView {
 
     view! {
         cx,
-        <div>
-            <Suspense fallback=move || view! { cx, <p>"Loading Price List with History..."</p> }>
-                <table class="primary">
-                    <thead>
-                        <tr>
-                            <th>"Refuel Station"</th>
-                            <th>"Address"</th>
-                            <th>"Price"</th>
-                            <th>"Updated"</th>
-                        </tr>
-                    </thead>
-                    <tbody>
-                        {move || { list.read(cx).map(|list| list.into_iter()
-                            .map(|n| view! { cx,
-                                <tr>
-                                    <td><div>{n.name}</div></td>
-                                    <td><address>{n.addr}</address></td>
-                                    <td><span>{n.price[0]}","{n.price[1]}<sup>{n.price[2]}</sup></span></td>
-                                    <td><div>{format!("{}", n.updated.with_timezone(&Local).format("%Y-%m-%d %H:%M"))}</div></td>
-                                </tr>
-                            })
-                            .collect_view(cx)
-                        )}}
-                    </tbody>
-                </table>
-            </Suspense>
-        </div>
+        <Suspense fallback=move || view! { cx, <p>"Loading Price List with History..."</p> }>
+            {move || { list.read(cx).map(|list| list.into_iter()
+                .map(|n| view! { cx,
+                    <PriceListItem item=n/>
+                })
+                .collect_view(cx)
+            )}}
+        </Suspense>
     }
 }
 
