@@ -1,8 +1,7 @@
 use crate::types::StationPriceChange;
+use crate::price_list::PriceListItem;
 
-use chrono::prelude::*;
 use leptos::*;
-use leptos_router::*;
 
 #[component]
 pub fn CurrentPrices(cx: Scope) -> impl IntoView {
@@ -18,29 +17,8 @@ pub fn CurrentPrices(cx: Scope) -> impl IntoView {
         cx,
         <Suspense fallback=move || view! { cx, <p>"Loading Current Price List..."</p> }>
             {move || { list.read(cx).map(|list| list.into_iter()
-                .map(|n| {
-                    let name = &n.name;
-                    let addr = &n.addr;
-                    let price = &n.price;
-                    let updated = n.updated.with_timezone(&Local);
-                    view! {
-                        cx,
-                        <div class="flex flex-col bg-white text-gray-700 py-2 px-4">
-                            <div class="flex flex-row justify-between text-2xl">
-                                // station name
-                                <div class="flex-none px-1">{name}</div>
-                                // price
-                                <div class="flex-none px-1">{price[0]}","{price[1]}<sup>{price[2]}</sup></div>
-                            </div>
-                            <div class="flex flex-row justify-between flex-wrap text-base">
-                                // station address
-                                <address class="flex-1 px-1">{addr}</address>
-                                // updated date and time
-                                <div class="flex-none px-1">{format!("{}", updated.format("%Y-%m-%d"))}</div>
-                                <div class="flex-none px-1">{format!("{}", updated.format("%H:%M"))}</div>
-                            </div>
-                        </div>
-                    }
+                .map(|n| view! { cx,
+                    <PriceListItem item=n/>
                 })
                 .collect_view(cx)
             )}}

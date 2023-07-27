@@ -5,4 +5,5 @@ mod all_prices;
 mod app;
 mod current_prices;
 mod price_history;
+mod price_list;
 mod types;
