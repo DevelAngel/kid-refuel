@@ -2625,6 +2625,7 @@ dependencies = [
  "rand 0.8.8",
  "refuel-app",
  "refuel-db",
+ "refuel-sim",
  "regex",
  "reqwest",
  "scraper",

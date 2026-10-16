@@ -30,3 +30,6 @@ tower-http = { workspace = true }
 tracing = { workspace = true }
 tracing-subscriber = { workspace = true }
 url = { workspace = true }
+
+[dev-dependencies]
+refuel-sim = { path = "../../sim" }
