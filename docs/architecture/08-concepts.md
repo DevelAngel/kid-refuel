@@ -6,7 +6,7 @@ Configuration is loaded and validated at startup. Invalid required settings shou
 
 ## Error handling
 
-Expected operational failures are represented and propagated as errors. Startup collection failure is fatal; later collection failures are logged and retried. A failed individual web request must not crash the server.
+Expected operational failures are represented and propagated as errors. Startup collection failure is fatal; later trigger failures are returned to the trigger client and logged without terminating the server. A failed individual web request must not crash the server.
 
 ## Persistence
 
@@ -18,4 +18,4 @@ Operational events and failures should be reported through structured logging. L
 
 ## Testing
 
-Tests should verify observable contracts, especially startup behavior, concurrent web availability, periodic retry behavior, persistence, and web queries.
+Tests should verify observable contracts, especially startup behavior, concurrent web availability, successful and failed control-socket requests, persistence, and web queries.
