@@ -12,17 +12,29 @@ fn run_collector(fixture: &str) -> Output {
         .output()
         .expect("collector process should start")
 }
-
+fn run_collector_content(html: &str) -> Output {
+    use std::time::{SystemTime, UNIX_EPOCH};
+ 
+    let nonce = SystemTime::now()
+        .duration_since(UNIX_EPOCH)
+        .map(|duration| duration.as_nanos())
+        .unwrap_or_default();
+    let path = std::env::temp_dir().join(format!("refuel-sim-{}-{nonce}.html", std::process::id()));
+    std::fs::write(&path, html).expect("simulator HTML should be written");
+    let output = run_collector(path.to_str().expect("temporary path should be valid UTF-8"));
+    let _ = std::fs::remove_file(path);
+    output
+}
 #[test]
 fn parses_a_valid_price_observation() {
-    let fixture = concat!(env!("CARGO_MANIFEST_DIR"), "/tests/fixtures/valid_prices.html");
-    let output = run_collector(fixture);
+    let html = refuel_sim::render_home().expect("simulator page should render");
+    let output = run_collector_content(&html);
     let stderr = String::from_utf8_lossy(&output.stderr);
 
     assert!(output.status.success(), "{stderr}");
-    assert!(stderr.contains("prices fetched: 1"), "{stderr}");
-    assert!(stderr.contains("Test Station"), "{stderr}");
-    assert!(stderr.contains("Test Street 1"), "{stderr}");
+    assert!(stderr.contains("prices fetched: 8"), "{stderr}");
+    assert!(stderr.contains("MyESSO"), "{stderr}");
+    assert!(stderr.contains("Marienfelder Chaussee 171"), "{stderr}");
 }
 
 #[test]
