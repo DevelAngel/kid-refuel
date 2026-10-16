@@ -1,4 +1,5 @@
 use crate::any_connection::AnyConnection;
+use crate::error::DatabaseError;
 use crate::schema::stations;
 
 use diesel::prelude::*;
@@ -12,28 +13,17 @@ pub struct Station {
 }
 
 impl Station {
-    pub fn load_all(conn: &mut AnyConnection) -> Vec<Self> {
+    pub fn load_all(conn: &mut AnyConnection) -> Result<Vec<Self>, DatabaseError> {
         match conn {
-            AnyConnection::Sqlite(conn) => Self::load_all_sqlite(conn),
+            AnyConnection::Sqlite(conn) => {
+                use crate::schema::stations::dsl::*;
+                Ok(stations
+                    .select((id, name, addr))
+                    .order_by(name.asc())
+                    .then_order_by(addr.asc())
+                    .load::<Self>(conn)?)
+            }
         }
-    }
-
-    fn load_all_sqlite(conn: &mut SqliteConnection) -> Vec<Self> {
-        use crate::schema::stations::dsl::*;
-        let s: Vec<_> = stations
-            .select((id, name, addr))
-            .order_by(name.asc())
-            .then_order_by(addr.asc())
-            .get_results::<(Option<i32>, String, String)>(conn)
-            .expect("sql failed");
-
-        s.into_iter()
-            .map(|(cid, cname, caddr)| Self {
-                id: cid,
-                name: cname,
-                addr: caddr,
-            })
-            .collect()
     }
 }
 
@@ -45,27 +35,22 @@ pub struct NewStation<'a> {
 }
 
 impl<'a> NewStation<'a> {
-    pub fn save(self, conn: &mut AnyConnection) -> Option<i32> {
+    pub fn save(self, conn: &mut AnyConnection) -> Result<i32, DatabaseError> {
         match conn {
-            AnyConnection::Sqlite(conn) => self.save_sqlite(conn),
-        }
-    }
+            AnyConnection::Sqlite(conn) => {
+                use crate::schema::stations::dsl::*;
+                diesel::insert_into(stations)
+                    .values(&self)
+                    .on_conflict_do_nothing()
+                    .execute(conn)?;
 
-    fn save_sqlite(self, conn: &mut SqliteConnection) -> Option<i32> {
-        use crate::schema::stations::dsl::*;
-        let exists = stations
-            .filter(name.eq(self.name))
-            .filter(addr.eq(self.addr))
-            .select(id)
-            .first::<Option<i32>>(conn);
-        match exists {
-            Err(diesel::NotFound) => diesel::insert_into(stations)
-                .values(self)
-                .returning(id)
-                .get_result(conn)
-                .expect("Error saving new station"),
-            Ok(Some(other_id)) => Some(other_id),
-            _ => None,
+                stations
+                    .filter(name.eq(self.name))
+                    .filter(addr.eq(self.addr))
+                    .select(id)
+                    .first::<Option<i32>>(conn)?
+                    .ok_or(DatabaseError::MissingId("station"))
+            }
         }
     }
 }

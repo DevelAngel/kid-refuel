@@ -7,16 +7,19 @@ use leptos::prelude::*;
 pub fn AllPrices() -> impl IntoView {
     let list = Resource::new(
         || (),
-        |_| async move { get_all_prices().await.unwrap() },
+        |_| async move { get_all_prices().await },
     );
 
     view! {
         <Suspense fallback=move || view! { <p>"Loading Price List with History..."</p> }>
             {move || {
-                list.get().map(|list| {
-                    list.into_iter()
+                list.get().map(|result| match result {
+                    Ok(list) => list.into_iter()
                         .map(|item| view! { <PriceListItem item=item/> })
-                        .collect_view()
+                        .collect_view().into_any(),
+                    Err(error) => view! {
+                        <p>{format!("Failed to load all prices: {error}")}</p>
+                    }.into_any(),
                 })
             }}
         </Suspense>
@@ -28,8 +31,8 @@ pub async fn get_all_prices() -> Result<Vec<StationPriceChange>, ServerFnError> 
     use refuel_db::establish_connection_sqlite;
     use refuel_db::prelude::StationPriceChange as DBStationPriceChange;
 
-    let conn = &mut establish_connection_sqlite();
-    let list = DBStationPriceChange::load_all(conn);
+    let mut conn = establish_connection_sqlite().map_err(|error| ServerFnError::new(error.to_string()))?;
+    let list = DBStationPriceChange::load_all(&mut conn).map_err(|error| ServerFnError::new(error.to_string()))?;
     let list = list.into_iter()
         .map(StationPriceChange::from)
         .collect();

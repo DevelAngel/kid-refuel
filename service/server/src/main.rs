@@ -128,11 +128,11 @@ async fn cmd_run_single(url: &Url, downloaded: &Option<PathBuf>, dry_run: bool) 
         warn!("price changes not saved (dry run)");
     } else {
         info!("prices fetched: {fetched}");
-        let conn = &mut establish_connection_sqlite();
+        let mut conn = establish_connection_sqlite()?;
         let refuel_stations: Vec<_> = refuel_stations
             .into_iter()
-            .map(|rs| rs.save(conn))
-            .collect();
+            .map(|station| station.save(&mut conn))
+            .collect::<Result<_, _>>()?;
         for rs in refuel_stations.iter() {
             let id = &rs.id;
             let name = &rs.station.name;

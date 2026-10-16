@@ -1,4 +1,5 @@
 use crate::any_connection::AnyConnection;
+use crate::error::DatabaseError;
 
 use chrono::prelude::*;
 use diesel::prelude::*;
@@ -12,52 +13,56 @@ pub struct StationPriceChange {
 }
 
 impl StationPriceChange {
-    pub fn load_all(conn: &mut AnyConnection) -> Vec<Self> {
+    pub fn load_all(conn: &mut AnyConnection) -> Result<Vec<Self>, DatabaseError> {
         match conn {
             AnyConnection::Sqlite(conn) => Self::load_all_sqlite(conn),
         }
     }
 
-    pub fn load_current(conn: &mut AnyConnection) -> Vec<Self> {
+    pub fn load_current(conn: &mut AnyConnection) -> Result<Vec<Self>, DatabaseError> {
         match conn {
-            AnyConnection::Sqlite(conn) => Self::load_curr_sqlite(conn),
+            AnyConnection::Sqlite(conn) => Self::load_current_sqlite(conn),
         }
     }
 
-    pub fn load_station(id: i32, conn: &mut AnyConnection) -> Vec<Self> {
+    pub fn load_station(
+        station_id_value: i32,
+        conn: &mut AnyConnection,
+    ) -> Result<Vec<Self>, DatabaseError> {
         match conn {
-            AnyConnection::Sqlite(conn) => Self::load_station_sqlite(id, conn),
+            AnyConnection::Sqlite(conn) => Self::load_station_sqlite(station_id_value, conn),
         }
     }
 
-    fn load_all_sqlite(conn: &mut SqliteConnection) -> Vec<Self> {
+    fn load_all_sqlite(conn: &mut SqliteConnection) -> Result<Vec<Self>, DatabaseError> {
         use crate::schema::price_changes::dsl::*;
         use crate::schema::stations::dsl::*;
-        let pc: Vec<_> = stations
+        let rows = stations
             .inner_join(price_changes)
             .select((name, addr, updated, price))
             .order_by(updated.desc())
             .then_order_by(price.asc())
             .then_order_by(name.asc())
             .then_order_by(addr.asc())
-            .get_results::<(String, String, NaiveDateTime, i32)>(conn)
-            .expect("sql failed");
+            .load::<(String, String, NaiveDateTime, i32)>(conn)?;
 
-        pc.into_iter()
-            .map(|(cname, caddr, cupdated, cprice)| Self {
-                name: cname,
-                addr: caddr,
-                updated: Utc.from_utc_datetime(&cupdated),
-                price: convert_price(cprice),
+        rows.into_iter()
+            .map(|(station_name, station_addr, changed_at, raw_price)| {
+                Ok(Self {
+                    name: station_name,
+                    addr: station_addr,
+                    updated: Utc.from_utc_datetime(&changed_at),
+                    price: convert_price(raw_price)?,
+                })
             })
             .collect()
     }
 
-    fn load_curr_sqlite(conn: &mut SqliteConnection) -> Vec<Self> {
+    fn load_current_sqlite(conn: &mut SqliteConnection) -> Result<Vec<Self>, DatabaseError> {
         use crate::schema::price_changes::dsl::*;
         use crate::schema::stations::dsl::*;
         let p2 = diesel::alias!(crate::schema::price_changes as p2);
-        let pc: Vec<_> = stations
+        let rows = stations
             .inner_join(price_changes)
             .filter(
                 updated.nullable().eq(p2
@@ -68,52 +73,56 @@ impl StationPriceChange {
             .select((name, addr, updated, price))
             .order_by(name.asc())
             .then_order_by(addr.asc())
-            .load::<(String, String, NaiveDateTime, i32)>(conn)
-            .expect("sql failedd");
+            .load::<(String, String, NaiveDateTime, i32)>(conn)?;
 
-        pc.into_iter()
-            .map(|(cname, caddr, cupdated, cprice)| Self {
-                name: cname,
-                addr: caddr,
-                updated: Utc.from_utc_datetime(&cupdated),
-                price: convert_price(cprice),
+        rows.into_iter()
+            .map(|(station_name, station_addr, changed_at, raw_price)| {
+                Ok(Self {
+                    name: station_name,
+                    addr: station_addr,
+                    updated: Utc.from_utc_datetime(&changed_at),
+                    price: convert_price(raw_price)?,
+                })
             })
             .collect()
     }
 
-    fn load_station_sqlite(sid: i32, conn: &mut SqliteConnection) -> Vec<Self> {
+    fn load_station_sqlite(
+        station_id_value: i32,
+        conn: &mut SqliteConnection,
+    ) -> Result<Vec<Self>, DatabaseError> {
         use crate::schema::price_changes::dsl::*;
         use crate::schema::stations::dsl::{id, *};
-        let pc: Vec<_> = stations
+        let rows = stations
             .inner_join(price_changes)
-            .filter(id.eq(sid))
+            .filter(id.eq(station_id_value))
             .select((name, addr, updated, price))
             .order_by(updated.desc())
-            .get_results::<(String, String, NaiveDateTime, i32)>(conn)
-            .expect("sql failed");
+            .load::<(String, String, NaiveDateTime, i32)>(conn)?;
 
-        pc.into_iter()
-            .map(|(cname, caddr, cupdated, cprice)| Self {
-                name: cname,
-                addr: caddr,
-                updated: Utc.from_utc_datetime(&cupdated),
-                price: convert_price(cprice),
+        rows.into_iter()
+            .map(|(station_name, station_addr, changed_at, raw_price)| {
+                Ok(Self {
+                    name: station_name,
+                    addr: station_addr,
+                    updated: Utc.from_utc_datetime(&changed_at),
+                    price: convert_price(raw_price)?,
+                })
             })
             .collect()
     }
 }
 
-fn convert_price(price: i32) -> [u8; 3] {
-    //1234 -> [1, 23, 4]
-    let eur = price / 1000; // 1234 / 1000 = 1
-    let cent = (price / 10) % 100; // (1234 / 10) % 100 = 123 % 100 = 23
-    let subcent = price % 10; // 1234 % 10 = 4
+fn convert_price(price: i32) -> Result<[u8; 3], DatabaseError> {
+    if price < 0 {
+        return Err(DatabaseError::InvalidPrice(price));
+    }
 
-    let eur: u8 = eur.try_into().expect("conversion failed");
-    let cent: u8 = cent.try_into().expect("conversion failed");
-    let subcent: u8 = subcent.try_into().expect("conversion failed");
+    let eur = u8::try_from(price / 1000).map_err(|_| DatabaseError::InvalidPrice(price))?;
+    let cent = ((price / 10) % 100) as u8;
+    let subcent = (price % 10) as u8;
 
-    [eur, cent, subcent]
+    Ok([eur, cent, subcent])
 }
 
 #[cfg(test)]
@@ -121,12 +130,17 @@ mod test {
     use super::*;
 
     #[test]
-    fn price_test() {
-        assert_eq!(convert_price(1234), [1, 23, 4]);
-        assert_eq!(convert_price(4321), [4, 32, 1]);
-        assert_eq!(convert_price(1879), [1, 87, 9]);
-        assert_eq!(convert_price(1000), [1, 0, 0]);
-        assert_eq!(convert_price(9999), [9, 99, 9]);
-        assert_eq!(convert_price(0), [0, 0, 0]);
+    fn converts_price_to_euros_cents_and_subcent() {
+        assert_eq!(convert_price(1234).unwrap(), [1, 23, 4]);
+        assert_eq!(convert_price(4321).unwrap(), [4, 32, 1]);
+        assert_eq!(convert_price(1879).unwrap(), [1, 87, 9]);
+        assert_eq!(convert_price(1000).unwrap(), [1, 0, 0]);
+        assert_eq!(convert_price(99999).unwrap(), [99, 99, 9]);
+        assert_eq!(convert_price(0).unwrap(), [0, 0, 0]);
+    }
+
+    #[test]
+    fn rejects_negative_prices() {
+        assert!(matches!(convert_price(-1), Err(DatabaseError::InvalidPrice(-1))));
     }
 }
