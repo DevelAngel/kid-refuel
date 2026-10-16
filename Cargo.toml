@@ -26,6 +26,7 @@ console_error_panic_hook = "0.1"
 diesel = { version = "2.1.0", default-features = false, features = ["with-deprecated", "chrono", "sqlite", "returning_clauses_for_sqlite_3_35"] }
 dotenvy = "0.15.7"
 hyper = "0.14.26"
+libsqlite3-sys = { version = "0.38.2", features = ["bundled"] }
 lazy_static = "1.4.0"
 leptos = { version = "0.8", default-features = false, features = ["cbor"] }
 leptos_meta = { version = "0.8", default-features = false }
@@ -33,7 +34,7 @@ leptos_router = { version = "0.8", default-features = false }
 leptos_axum = { version = "0.8" }
 rand = "0.8.5"
 regex = "1.8.1"
-reqwest = "0.11.16"
+reqwest = { version = "0.11.16", default-features = false, features = ["rustls-tls"] }
 scraper = "0.15.0"
 serde = { version = "1" }
 thiserror = { version = "1.0.40" }
