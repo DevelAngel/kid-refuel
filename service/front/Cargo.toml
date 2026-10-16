@@ -2,7 +2,7 @@
 name = "refuel-front"
 version.workspace = true
 authors.workspace = true
-edition = "2021"
+edition = "2024"
 
 # See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
 
