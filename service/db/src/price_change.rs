@@ -1,4 +1,5 @@
 use crate::any_connection::AnyConnection;
+use crate::error::DatabaseError;
 use crate::schema::price_changes;
 use crate::station::Station;
 
@@ -24,27 +25,22 @@ pub struct NewPriceChange<'a> {
 }
 
 impl<'a> NewPriceChange<'a> {
-    pub fn save(self, conn: &mut AnyConnection) -> Option<i32> {
+    pub fn save(self, conn: &mut AnyConnection) -> Result<i32, DatabaseError> {
         match conn {
-            AnyConnection::Sqlite(conn) => self.save_sqlite(conn),
-        }
-    }
+            AnyConnection::Sqlite(conn) => {
+                use crate::schema::price_changes::dsl::*;
+                diesel::insert_into(price_changes)
+                    .values(&self)
+                    .on_conflict_do_nothing()
+                    .execute(conn)?;
 
-    fn save_sqlite(self, conn: &mut SqliteConnection) -> Option<i32> {
-        use crate::schema::price_changes::dsl::*;
-        let exists = price_changes
-            .filter(station_id.eq(self.station_id))
-            .filter(updated.eq(self.updated))
-            .select(id)
-            .first::<Option<i32>>(conn);
-        match exists {
-            Err(diesel::NotFound) => diesel::insert_into(price_changes)
-                .values(self)
-                .returning(id)
-                .get_result(conn)
-                .expect("Error saving new price change"),
-            Ok(Some(other_id)) => Some(other_id),
-            _ => None,
+                price_changes
+                    .filter(station_id.eq(self.station_id))
+                    .filter(updated.eq(self.updated))
+                    .select(id)
+                    .first::<Option<i32>>(conn)?
+                    .ok_or(DatabaseError::MissingId("price change"))
+            }
         }
     }
 }

@@ -3,10 +3,12 @@ resolver = "3"
 members = [
     "service/front",
     "service/server",
+    "service/db",
     "sim",
 ]
 default-members = [
     "service/front",
+    "service/db",
     "service/server",
 ]
 

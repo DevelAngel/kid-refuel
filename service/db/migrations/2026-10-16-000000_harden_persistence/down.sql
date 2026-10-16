@@ -1,0 +1,2 @@
+DROP INDEX price_changes_station_updated_unique;
+DROP INDEX stations_name_addr_unique;

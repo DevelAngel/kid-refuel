@@ -40,28 +40,28 @@ pub struct StationPriceChangeWithId {
 }
 
 impl StationPriceChange {
-    pub fn save(self, conn: &mut AnyConnection) -> StationPriceChangeWithId {
-        let station = NewStation {
+    pub fn save(self, conn: &mut AnyConnection) -> std::result::Result<StationPriceChangeWithId, DatabaseError> {
+        let station_id = NewStation {
             name: &self.station.name,
             addr: &self.station.addr,
-        };
-        let station_id = station.save(conn).unwrap();
+        }
+        .save(conn)?;
 
-        let price_change = NewPriceChange {
+        let updated = self.price_change.updated.naive_utc();
+        NewPriceChange {
             station_id,
-            updated: &self.price_change.updated.naive_utc(),
+            updated: &updated,
             price: self.price_change.convert_to_subcent(),
-        };
-        let _price_change_id = price_change.save(conn).unwrap();
-
-        StationPriceChangeWithId {
+        }
+        .save(conn)?;
+        Ok(StationPriceChangeWithId {
             id: station_id,
             station: self.station,
             price_change: self.price_change,
-        }
+        })
     }
-}
 
+}
 #[tracing::instrument(skip(document))]
 pub(crate) async fn parse(document: &Html) -> Result<VecDeque<StationPriceChange>> {
     let price_list_selector = selector(".PriceList")?;

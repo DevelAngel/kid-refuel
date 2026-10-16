@@ -17,7 +17,7 @@ pub fn PriceHistory() -> impl IntoView {
 pub fn StationList() -> impl IntoView {
     let list = Resource::new(
         || (),
-        |_| async move { get_stations().await.unwrap() },
+        |_| async move { get_stations().await },
     );
 
     view! {
@@ -33,8 +33,8 @@ pub fn StationList() -> impl IntoView {
                     </thead>
                     <tbody>
                         {move || {
-                            list.get().map(|list| {
-                                list.into_iter()
+                            list.get().map(|result| match result {
+                                Ok(list) => list.into_iter()
                                     .map(|station| view! {
                                         <tr>
                                             <td><div><A href=station.id.to_string()>{station.id}</A></div></td>
@@ -42,8 +42,8 @@ pub fn StationList() -> impl IntoView {
                                             <td><address>{station.addr}</address></td>
                                         </tr>
                                     })
-                                    .collect_view()
-                            })
+                                    .collect_view().into_any(),
+                                Err(error) => view! { <p>{format!("Failed to load stations: {error}")}</p> }.into_any(), })
                         }}
                     </tbody>
                 </table>
@@ -58,7 +58,7 @@ pub fn StationPriceHistory() -> impl IntoView {
     let list = Resource::new(
         move || params.read().get("id").unwrap_or_default(),
         move |id| async move {
-            get_price_history(id.parse::<i32>().expect("station id is no number")).await.unwrap()
+            match id.parse::<i32>() { Ok(station_id) => get_price_history(station_id).await, Err(error) => Err(ServerFnError::new(format!("Invalid station ID: {error}"))) }
         },
     );
 
@@ -76,8 +76,8 @@ pub fn StationPriceHistory() -> impl IntoView {
                     </thead>
                     <tbody>
                         {move || {
-                            list.get().map(|list| {
-                                list.into_iter()
+                            list.get().map(|result| match result {
+                                Ok(list) => list.into_iter()
                                     .map(|item| view! {
                                         <tr>
                                             <td><div>{item.name}</div></td>
@@ -86,8 +86,8 @@ pub fn StationPriceHistory() -> impl IntoView {
                                             <td><div>{item.updated.with_timezone(&Local).format("%Y-%m-%d %H:%M").to_string()}</div></td>
                                         </tr>
                                     })
-                                    .collect_view()
-                            })
+                                    .collect_view().into_any(),
+                                Err(error) => view! { <p>{format!("Failed to load station history: {error}")}</p> }.into_any(), })
                         }}
                     </tbody>
                 </table>
@@ -101,8 +101,8 @@ pub async fn get_stations() -> Result<Vec<Station>, ServerFnError> {
     use refuel_db::establish_connection_sqlite;
     use refuel_db::prelude::Station as DBStation;
 
-    let conn = &mut establish_connection_sqlite();
-    let list = DBStation::load_all(conn);
+    let mut conn = establish_connection_sqlite().map_err(|error| ServerFnError::new(error.to_string()))?;
+    let list = DBStation::load_all(&mut conn).map_err(|error| ServerFnError::new(error.to_string()))?;
     let list = list.into_iter()
         .map(Station::from)
         .collect();
@@ -114,8 +114,8 @@ pub async fn get_price_history(station_id: i32) -> Result<Vec<StationPriceChange
     use refuel_db::establish_connection_sqlite;
     use refuel_db::prelude::StationPriceChange as DBStationPriceChange;
 
-    let conn = &mut establish_connection_sqlite();
-    let list = DBStationPriceChange::load_station(station_id, conn);
+    let mut conn = establish_connection_sqlite().map_err(|error| ServerFnError::new(error.to_string()))?;
+    let list = DBStationPriceChange::load_station(station_id, &mut conn).map_err(|error| ServerFnError::new(error.to_string()))?;
     let list = list.into_iter()
         .map(StationPriceChange::from)
         .collect();
