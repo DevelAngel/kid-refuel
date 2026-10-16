@@ -56,14 +56,13 @@ impl StationPriceChange {
     fn load_curr_sqlite(conn: &mut SqliteConnection) -> Vec<Self> {
         use crate::schema::price_changes::dsl::*;
         use crate::schema::stations::dsl::*;
-        use diesel::dsl::max;
         let p2 = diesel::alias!(crate::schema::price_changes as p2);
         let pc: Vec<_> = stations
             .inner_join(price_changes)
             .filter(
                 updated.nullable().eq(p2
                     .filter(station_id.eq(p2.field(station_id)))
-                    .select(max(p2.field(updated)))
+                    .select(diesel::dsl::max(p2.field(updated)))
                     .single_value()),
             )
             .select((name, addr, updated, price))
