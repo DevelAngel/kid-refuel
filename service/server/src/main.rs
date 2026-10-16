@@ -13,10 +13,11 @@ use crate::save::*;
 
 use crate::fallback::file_and_error_handler;
 
-use refuel_app::prelude::*;
+use refuel_app::prelude::App;
 use refuel_db::*;
 
-use leptos::*;
+use leptos::prelude::*;
+use leptos::config::get_configuration;
 use rand::prelude::*;
 
 use axum::{Router, routing::get};
@@ -176,8 +177,8 @@ async fn cmd_run_loop(url: &Url, dry_run: bool) -> Result<(), Box<dyn std::error
     Ok(())
 }
 
-fn app(cx: leptos::Scope) -> impl IntoView {
-    view! { cx, <App /> }
+fn app() -> impl IntoView {
+    view! { <App /> }
 }
 
 #[tokio::main]
@@ -196,40 +197,32 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
             Commands::Run { common, dry_run } => { cmd_run_loop(&common.url, dry_run.to_owned()).await? }
         }
     } else {
-        let conf = get_configuration(None).await.unwrap();
+        let conf = get_configuration(None).unwrap();
         let leptos_options = conf.leptos_options;
         let addr = leptos_options.site_addr;
 
-        // no longer needed since leptos 0.4
-        // if server function is not registered,
-        // a bad request (400) will be answered
-        //_ = GetCurrentPrices::register();
-        //_ = GetAllPrices::register();
-        //_ = GetStations::register();
-        //_ = GetPriceHistory::register();
 
         // Generate the list of routes in your Leptos App
-        let routes = generate_route_list(app).await;
+        let routes = generate_route_list(app);
 
         let app = Router::new()
-            .route("/api/*fn_name", get(leptos_axum::handle_server_fns).post(leptos_axum::handle_server_fns))
+            .route("/api/{*fn_name}", get(leptos_axum::handle_server_fns).post(leptos_axum::handle_server_fns))
             .route("/favicon.ico", get(file_and_error_handler))
             .leptos_routes(
                 &leptos_options,
                 routes,
                 app
             )
-            .fallback(file_and_error_handler)
+            .route(
+                "/api/{*fn_name}",
+                get(leptos_axum::handle_server_fns)
+                    .post(leptos_axum::handle_server_fns),
+            )
             .layer(TraceLayer::new_for_http())
             .with_state(leptos_options);
-
-        // run our app with hyper
-        // `axum::Server` is a re-export of `hyper::Server`
         info!("listening on http://{}", &addr);
-        axum::Server::bind(&addr)
-            .serve(app.into_make_service())
-            .await
-            .unwrap();
+        let listener = tokio::net::TcpListener::bind(addr).await?;
+        axum::serve(listener, app).await?;
     }
 
     Ok(())

@@ -13,21 +13,20 @@ axum = { workspace = true, features = ["http2", "tracing"] }
 axum-macros = { workspace = true }
 chrono = { workspace = true }
 clap = { workspace = true }
-lazy_static = "1.4.0"
-leptos = { workspace = true, features = ["ssr", "serde", "tracing"] }
+lazy_static = { workspace = true }
+leptos = { workspace = true, features = ["ssr", "tracing"] }
 leptos_meta = { workspace = true, features = ["ssr"] }
 leptos_router = { workspace = true, features = ["ssr"] }
-leptos_dom = { workspace = true, features = ["ssr"] }
 leptos_axum = { workspace = true }
-rand = "0.8.5"
-regex = "1.8.1"
-reqwest = "0.11.16"
-scraper = "0.15.0"
-serde = { version = "1.0.163", features = ["derive"] }
+rand = { workspace = true }
+regex = { workspace = true }
+reqwest = { workspace = true }
+scraper = { workspace = true }
+serde = { workspace = true, features = ["derive"] }
 thiserror = { workspace = true }
 tokio = { workspace = true, features = ["time"] }
-tower = { version = "0.4" }
-tower-http = { version = "0.4", features = ["fs", "trace"] }
+tower = { workspace = true }
+tower-http = { workspace = true }
 tracing = { workspace = true }
 tracing-subscriber = { workspace = true }
-url = "2.3.1"
+url = { workspace = true }
