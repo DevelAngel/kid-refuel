@@ -1,9 +1,8 @@
-use leptos::*;
+use leptos::prelude::*;
 
 #[component]
-pub fn About(cx: Scope) -> impl IntoView {
+pub fn About() -> impl IntoView {
     view! {
-        cx,
         <div>
             <p>"It's me!"</p>
         </div>
