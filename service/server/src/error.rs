@@ -1,19 +1,23 @@
 use thiserror::Error;
 
-use regex::Regex;
-use scraper::Selector;
-use std::num;
-
 #[derive(Error, Debug)]
 pub enum ParseError {
-    #[error("invalid price detected\nregex: {regex}\nhtml:\n{html}\n")]
-    InvalidPriceError { html: String, regex: Regex },
-    #[error("invalid updated timestamp detected\nregex: {regex}\nhtml:\n{html}\n")]
-    InvalidUpdatedError { html: String, regex: Regex },
-    #[error("html select error\nselector: {selector:?}\nhtml:\n{html}\n")]
-    HtmlSelectError { html: String, selector: Selector },
-    #[error("regex mismatch error\nregex: {regex}\nhtml:\n{html}\n")]
-    RegexMismatchError { html: String, regex: Regex },
-    #[error("string to number convertion error")]
-    ParseIntError(#[from] num::ParseIntError),
+    #[error("price list not found in source HTML")]
+    MissingPriceList,
+    #[error("missing or empty {field} in source HTML")]
+    MissingField { field: &'static str },
+    #[error("invalid price value: {value}")]
+    InvalidPrice { value: String },
+    #[error("invalid timestamp: {value}")]
+    InvalidUpdated { value: String },
+    #[error("invalid selector {selector}: {reason}")]
+    InvalidSelector {
+        selector: &'static str,
+        reason: String,
+    },
+    #[error("invalid {pattern} pattern: {reason}")]
+    InvalidPattern {
+        pattern: &'static str,
+        reason: String,
+    },
 }

@@ -1,16 +1,11 @@
 use crate::error::ParseError;
-
 use refuel_db::prelude::*;
 
-use chrono::prelude::*;
-
-use scraper::{Html, ElementRef, Selector};
-use lazy_static::lazy_static;
+use chrono::{DateTime, Datelike, Local, TimeZone};
 use regex::Regex;
+use scraper::{ElementRef, Html, Selector};
 use std::collections::VecDeque;
-use tokio::try_join;
-
-use tracing::{debug, error};
+use tracing::debug;
 
 type Result<T> = std::result::Result<T, ParseError>;
 
@@ -21,7 +16,7 @@ pub struct Station {
 
 pub struct PriceChange {
     pub price: [u8; 3],
-    pub updated: DateTime<Utc>,
+    pub updated: DateTime<Local>,
 }
 
 impl PriceChange {
@@ -46,158 +41,166 @@ pub struct StationPriceChangeWithId {
 
 impl StationPriceChange {
     pub fn save(self, conn: &mut AnyConnection) -> StationPriceChangeWithId {
-        let rs = NewStation {
+        let station = NewStation {
             name: &self.station.name,
             addr: &self.station.addr,
         };
-        let rs_id = rs.save(conn).unwrap();
+        let station_id = station.save(conn).unwrap();
 
-        let pc = NewPriceChange {
-            station_id: rs_id,
+        let price_change = NewPriceChange {
+            station_id,
             updated: &self.price_change.updated.naive_utc(),
             price: self.price_change.convert_to_subcent(),
         };
-        let _pc_id = pc.save(conn).unwrap();
+        let _price_change_id = price_change.save(conn).unwrap();
 
         StationPriceChangeWithId {
-            id: rs_id,
+            id: station_id,
             station: self.station,
             price_change: self.price_change,
         }
-
     }
 }
 
 #[tracing::instrument(skip(document))]
 pub(crate) async fn parse(document: &Html) -> Result<VecDeque<StationPriceChange>> {
-    let selector_pricelist = Selector::parse(r#".PriceList"#).expect("invalid list selector");
-    let selector_priceitem = Selector::parse(r#".PriceList__item:not(.list-ad)"#).expect("invalid list item selector");
-    let selector_name = Selector::parse(r#".PriceList__itemTitle"#).expect("invalid name selector");
-    let selector_addr = Selector::parse(r#".PriceList__itemSubtitle"#).expect("invalid addr selector");
-    let selector_updated = Selector::parse(r#".PriceList__itemUpdated"#).expect("invalid updated selector");
-    let selector_price = Selector::parse(r#".PriceList__itemPrice"#).expect("invalid price selector");
+    let price_list_selector = selector(".PriceList")?;
+    let price_item_selector = selector(".PriceList__item:not(.list-ad)")?;
+    let name_selector = selector(".PriceList__itemTitle")?;
+    let address_selector = selector(".PriceList__itemSubtitle")?;
+    let updated_selector = selector(".PriceList__itemUpdated")?;
+    let price_selector = selector(".PriceList__itemPrice")?;
+    let updated_regex = Regex::new(
+        r"(?P<day>\d{1,2})\.(?P<month>\d{1,2})\.(?:\s*(?P<year>\d{4}))?\s*(?P<hour>\d{1,2}):(?P<minute>\d{2})"
+    )
+    .map_err(|error| ParseError::InvalidPattern {
+        pattern: "timestamp",
+        reason: error.to_string(),
+    })?;
+    let price_regex = Regex::new(
+        r"(?P<eur>\d{1,2})[,.](?P<cent>\d{2})\s*(?P<subcent>\d)"
+    )
+    .map_err(|error| ParseError::InvalidPattern {
+        pattern: "price",
+        reason: error.to_string(),
+    })?;
 
-    let mut refuel_stations = VecDeque::with_capacity(20);
-    let document = document.select(&selector_pricelist).next().expect("list not found");
-    for elem in document.select(&selector_priceitem) {
-        let name = parse_text(&elem, &selector_name);
-        let addr = parse_text(&elem, &selector_addr);
-        let updated = parse_updated(&elem, &selector_updated);
-        let price = parse_price(&elem, &selector_price);
+    let price_list = document
+        .select(&price_list_selector)
+        .next()
+        .ok_or(ParseError::MissingPriceList)?;
 
-        match try_join!(name, addr, price, updated) {
-            Ok((name, addr, price, updated)) => {
-                let station = StationPriceChange {
-                    station: Station { name, addr },
-                    price_change: PriceChange { price, updated: updated.into() },
-                };
-                refuel_stations.push_back(station);
-            }
-            Err(err) => {
-                match err {
-                    ParseError::InvalidPriceError { html: _, regex: _ } |
-                    ParseError::InvalidUpdatedError { html: _, regex: _ } => {
-                        debug!("{err}");
-                    }
-                    _ => {
-                        error!("{err}");
-                    }
-                }
-            }
+    let mut stations = VecDeque::with_capacity(20);
+    for element in price_list.select(&price_item_selector) {
+        let parsed: Result<StationPriceChange> = (|| {
+            let name = parse_text(&element, &name_selector, "station name")?;
+            let addr = parse_text(&element, &address_selector, "station address")?;
+            let updated = parse_updated(&element, &updated_selector, &updated_regex)?;
+            let price = parse_price(&element, &price_selector, &price_regex)?;
+
+            Ok(StationPriceChange {
+                station: Station { name, addr },
+                price_change: PriceChange { price, updated },
+            })
+        })();
+
+        match parsed {
+            Ok(station) => stations.push_back(station),
+            Err(error) => debug!("skipping invalid price list entry: {error}"),
         }
     }
 
-    Ok(refuel_stations)
+    Ok(stations)
 }
 
-#[tracing::instrument(skip(fragment))]
-async fn parse_text<'a, 'b>(fragment: &ElementRef<'a>, selector: &'b Selector) -> Result<String> {
-    lazy_static! {
-        static ref REGEX: Regex = Regex::new(r"\b.+\b").expect("invalid text regex");
-    }
-
-    let text = fragment.select(selector).next().ok_or(ParseError::HtmlSelectError{
-            html: fragment.inner_html(),
-            selector: selector.clone(),
-        })?;
-    let text = text.inner_html();
-    let text = REGEX.find_iter(&text).map(|mat| mat.as_str()).next().expect("text regex mismatch");
-    Ok(text.to_owned())
+fn selector(value: &'static str) -> Result<Selector> {
+    Selector::parse(value).map_err(|error| ParseError::InvalidSelector {
+        selector: value,
+        reason: error.to_string(),
+    })
 }
 
-#[tracing::instrument(skip(fragment))]
-async fn parse_updated<'a, 'b>(fragment: &ElementRef<'a>, selector: &'b Selector) -> Result<DateTime<Local>> {
-    lazy_static! {
-        static ref REGEX: Regex = Regex::new(r#"(?P<d>\d{2})\.(?P<m>\d{2})\..(?P<h>\d{2}):(?P<min>\d{2})"#).expect("invalid updated regex");
-        static ref REGEX_WS: Regex = Regex::new(r#"^\s*$"#).expect("invalid updated regex");
-    }
+fn parse_text(
+    element: &ElementRef<'_>,
+    selector: &Selector,
+    field: &'static str,
+) -> Result<String> {
+    let text = element
+        .select(selector)
+        .next()
+        .map(|element| element.text().collect::<String>().trim().to_owned())
+        .filter(|text| !text.is_empty())
+        .ok_or(ParseError::MissingField { field })?;
 
-    let updated = fragment.select(selector).next().ok_or(ParseError::HtmlSelectError{
-            html: fragment.inner_html(),
-            selector: selector.clone(),
-        })?;
-    let updated = updated.inner_html();
-
-    if REGEX_WS.is_match(&updated) {
-        return Err(ParseError::InvalidUpdatedError {
-            html: updated,
-            regex: REGEX_WS.clone(),
-        });
-    }
-
-    let updated = REGEX.captures(&updated).ok_or(ParseError::RegexMismatchError{
-            html: updated.to_owned(),
-            regex: REGEX.clone(),
-        })?;
-
-    let year = if let Some(year) = updated.name("y") {
-            year.as_str().parse()?
-        } else {
-            2023
-        };
-    let month = updated.name("m").expect("month missing in regex").as_str().parse().unwrap();
-    let day = updated.name("d").expect("day missing in regex").as_str().parse().unwrap();
-    let hour = updated.name("h").expect("day missing in regex").as_str().parse().unwrap();
-    let min = updated.name("min").expect("day missing in regex").as_str().parse().unwrap();
-    let sec = if let Some(sec) = updated.name("s") {
-            sec.as_str().parse()?
-        } else {
-            0
-        };
-
-    // expect datetime shown in local time
-    let datetime = Local.with_ymd_and_hms(year, month, day, hour, min, sec).unwrap();
-    Ok(datetime)
+    Ok(text)
 }
 
-#[tracing::instrument(skip(fragment))]
-async fn parse_price<'a, 'b>(fragment: &ElementRef<'a>, selector: &'b Selector) -> Result<[u8; 3]> {
-    lazy_static! {
-        static ref REGEX_INVALID: Regex = Regex::new(r"[\-]\.[\-]{2}").expect("invalid invalid-price regex");
-        static ref REGEX: Regex = Regex::new(r"\b(?P<eur>\d)\.(?P<cent>\d{2})\b(?s:.+)\b(?P<subcent>\d)\b").expect("invalid price regex");
-    }
+fn parse_updated(element: &ElementRef<'_>, selector: &Selector, regex: &Regex) -> Result<DateTime<Local>> {
 
-    let price = fragment.select(selector).next().ok_or(ParseError::HtmlSelectError{
-            html: fragment.inner_html(),
-            selector: selector.clone(),
+    let value = parse_text(element, selector, "timestamp")?;
+    let captures = regex
+        .captures(&value)
+        .ok_or_else(|| ParseError::InvalidUpdated {
+            value: value.clone(),
         })?;
 
-    let price = price.inner_html();
+    let parse_part = |name: &str| {
+        captures
+            .name(name)
+            .and_then(|value| value.as_str().parse::<u32>().ok())
+    };
 
-    if REGEX_INVALID.is_match(&price) {
-        return Err(ParseError::InvalidPriceError { html: price, regex: REGEX_INVALID.clone() });
-    }
+    let day = parse_part("day").ok_or_else(|| ParseError::InvalidUpdated {
+        value: value.clone(),
+    })?;
+    let month = parse_part("month").ok_or_else(|| ParseError::InvalidUpdated {
+        value: value.clone(),
+    })?;
+    let hour = parse_part("hour").ok_or_else(|| ParseError::InvalidUpdated {
+        value: value.clone(),
+    })?;
+    let minute = parse_part("minute").ok_or_else(|| ParseError::InvalidUpdated {
+        value: value.clone(),
+    })?;
 
-    let price = REGEX.captures(&price).ok_or(ParseError::RegexMismatchError{
-            html: price.to_owned(),
-            regex: REGEX.clone(),
+    let now = Local::now();
+    let year = match parse_part("year") {
+        Some(year) => year as i32,
+        None if month > now.month() && month - now.month() > 6 => now.year() - 1,
+        None if now.month() > month && now.month() - month > 6 => now.year() + 1,
+        None => now.year(),
+    };
+
+    Local
+        .with_ymd_and_hms(year, month, day, hour, minute, 0)
+        .single()
+        .ok_or(ParseError::InvalidUpdated { value })
+}
+
+fn parse_price(element: &ElementRef<'_>, selector: &Selector, regex: &Regex) -> Result<[u8; 3]> {
+
+    let value = parse_text(element, selector, "price")?;
+    let captures = regex
+        .captures(&value)
+        .ok_or_else(|| ParseError::InvalidPrice {
+            value: value.clone(),
         })?;
-    let eur: u8 = price.name("eur").expect("eur missing in regex").as_str().parse().expect("eur is no integer");
-    let cent: u8 = price.name("cent").expect("cent missing in regex").as_str().parse().expect("cent is no integer");
-    let subcent: u8 = price.name("subcent").expect("subcent missing in regex").as_str().parse().expect("subcent is no integer");
-    assert!(subcent < 10);
-    assert!(cent < 100);
+
+    let parse_part = |name: &str| {
+        captures
+            .name(name)
+            .and_then(|value| value.as_str().parse::<u8>().ok())
+    };
+
+    let eur = parse_part("eur").ok_or_else(|| ParseError::InvalidPrice {
+        value: value.clone(),
+    })?;
+    let cent = parse_part("cent").ok_or_else(|| ParseError::InvalidPrice {
+        value: value.clone(),
+    })?;
+    let subcent = parse_part("subcent").ok_or_else(|| ParseError::InvalidPrice {
+        value: value.clone(),
+    })?;
 
     Ok([eur, cent, subcent])
 }
-
