@@ -78,6 +78,30 @@ mod tests {
     }
 
     #[test]
+    fn first_issue_example_keeps_daytime_jitter_and_thins_the_night() {
+        assert_eq!(interval_at(NaiveTime::from_hms_opt(21, 33, 0).unwrap()), None);
+        assert_eq!(interval_at(NaiveTime::from_hms_opt(22, 27, 0).unwrap()), Some(NIGHT_INTERVAL));
+        assert_eq!(interval_at(NaiveTime::from_hms_opt(1, 27, 0).unwrap()), Some(NIGHT_INTERVAL));
+        assert_eq!(interval_at(NaiveTime::from_hms_opt(4, 27, 0).unwrap()), None);
+    }
+
+    #[test]
+    fn second_issue_example_keeps_daytime_jitter_and_thins_the_night() {
+        assert_eq!(interval_at(NaiveTime::from_hms_opt(20, 46, 0).unwrap()), None);
+        assert_eq!(interval_at(NaiveTime::from_hms_opt(21, 39, 0).unwrap()), None);
+        assert_eq!(interval_at(NaiveTime::from_hms_opt(22, 39, 0).unwrap()), Some(NIGHT_INTERVAL));
+        assert_eq!(interval_at(NaiveTime::from_hms_opt(1, 39, 0).unwrap()), Some(NIGHT_INTERVAL));
+        assert_eq!(interval_at(NaiveTime::from_hms_opt(4, 39, 0).unwrap()), None);
+    }
+
+    #[test]
+    fn third_issue_example_keeps_daytime_jitter_and_thins_the_night() {
+        assert_eq!(interval_at(NaiveTime::from_hms_opt(20, 54, 0).unwrap()), None);
+        assert_eq!(interval_at(NaiveTime::from_hms_opt(22, 4, 0).unwrap()), Some(NIGHT_INTERVAL));
+        assert_eq!(interval_at(NaiveTime::from_hms_opt(1, 4, 0).unwrap()), Some(NIGHT_INTERVAL));
+        assert_eq!(interval_at(NaiveTime::from_hms_opt(4, 4, 0).unwrap()), None);
+    }
+    #[test]
     fn delay_stays_within_interval_and_jitter_bounds() {
         let mut rng = StdRng::seed_from_u64(42);
         let interval = Duration::from_secs(60 * 60);
