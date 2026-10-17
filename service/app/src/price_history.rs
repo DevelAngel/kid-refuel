@@ -8,8 +8,15 @@ use leptos_router::hooks::use_params_map;
 #[component]
 pub fn PriceHistory() -> impl IntoView {
     view! {
-        <StationList/>
-        <Outlet/>
+        <section class="space-y-6">
+            <header class="space-y-2">
+                <p class="text-sm font-semibold uppercase tracking-widest text-cyan-400">"Station explorer"</p>
+                <h1 class="text-3xl font-bold tracking-tight text-white sm:text-4xl">"Price history"</h1>
+                <p class="max-w-2xl text-sm leading-6 text-slate-400 sm:text-base">"Choose a station to review its recorded prices and updates."</p>
+            </header>
+            <StationList/>
+            <Outlet/>
+        </section>
     }
 }
 
@@ -21,14 +28,14 @@ pub fn StationList() -> impl IntoView {
     );
 
     view! {
-        <div>
+        <div class="overflow-x-auto rounded-xl border border-slate-800 bg-slate-900 shadow-sm">
             <Suspense fallback=move || view! { <p>"Loading Station List..."</p> }>
-                <table class="primary">
+                <table class="min-w-full divide-y divide-slate-800 text-left text-sm">
                     <thead>
                         <tr>
-                            <th>"ID"</th>
-                            <th>"Refuel Station"</th>
-                            <th>"Address"</th>
+                            <th class="whitespace-nowrap px-5 py-3 font-semibold text-slate-400">"ID"</th>
+                            <th class="whitespace-nowrap px-5 py-3 font-semibold text-slate-400">"Refuel Station"</th>
+                            <th class="whitespace-nowrap px-5 py-3 font-semibold text-slate-400">"Address"</th>
                         </tr>
                     </thead>
                     <tbody>
@@ -37,9 +44,9 @@ pub fn StationList() -> impl IntoView {
                                 Ok(list) => list.into_iter()
                                     .map(|station| view! {
                                         <tr>
-                                            <td><div><A href=station.id.to_string()>{station.id}</A></div></td>
-                                            <td><div>{station.name}</div></td>
-                                            <td><address>{station.addr}</address></td>
+                                            <td class="border-t border-slate-800 px-5 py-4 text-cyan-300"><A href=station.id.to_string()>{station.id}</A></td>
+                                            <td class="border-t border-slate-800 px-5 py-4 font-medium text-white"><div>{station.name}</div></td>
+                                            <td class="border-t border-slate-800 px-5 py-4 text-slate-400"><address class="not-italic">{station.addr}</address></td>
                                         </tr>
                                     })
                                     .collect_view().into_any(),
@@ -63,15 +70,15 @@ pub fn StationPriceHistory() -> impl IntoView {
     );
 
     view! {
-        <div>
+        <div class="overflow-x-auto rounded-xl border border-slate-800 bg-slate-900 shadow-sm">
             <Suspense fallback=move || view! { <p>"Loading Station Price History..."</p> }>
-                <table class="primary">
+                <table class="min-w-full divide-y divide-slate-800 text-left text-sm">
                     <thead>
                         <tr>
-                            <th>"Refuel Station"</th>
-                            <th>"Address"</th>
-                            <th>"Price"</th>
-                            <th>"Updated"</th>
+                            <th class="whitespace-nowrap px-5 py-3 font-semibold text-slate-400">"Refuel Station"</th>
+                            <th class="whitespace-nowrap px-5 py-3 font-semibold text-slate-400">"Address"</th>
+                            <th class="whitespace-nowrap px-5 py-3 font-semibold text-slate-400">"Price"</th>
+                            <th class="whitespace-nowrap px-5 py-3 font-semibold text-slate-400">"Updated"</th>
                         </tr>
                     </thead>
                     <tbody>
@@ -80,10 +87,10 @@ pub fn StationPriceHistory() -> impl IntoView {
                                 Ok(list) => list.into_iter()
                                     .map(|item| view! {
                                         <tr>
-                                            <td><div>{item.name}</div></td>
-                                            <td><address>{item.addr}</address></td>
-                                            <td><span>{item.price[0]}","{item.price[1]}<sup>{item.price[2]}</sup></span></td>
-                                            <td><div>{item.updated.with_timezone(&Local).format("%Y-%m-%d %H:%M").to_string()}</div></td>
+                                            <td class="border-t border-slate-800 px-5 py-4 font-medium text-white"><div>{item.name}</div></td>
+                                            <td class="border-t border-slate-800 px-5 py-4 text-slate-400"><address class="not-italic">{item.addr}</address></td>
+                                            <td class="border-t border-slate-800 px-5 py-4 text-2xl font-bold text-cyan-300"><span>{item.price[0]}", "{item.price[1]}<sup class="text-sm">{item.price[2]}</sup></span></td>
+                                            <td class="border-t border-slate-800 px-5 py-4 whitespace-nowrap text-slate-400"><div>{item.updated.with_timezone(&Local).format("%Y-%m-%d %H:%M").to_string()}</div></td>
                                         </tr>
                                     })
                                     .collect_view().into_any(),
