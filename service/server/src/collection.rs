@@ -6,6 +6,10 @@ use tokio::sync::watch;
 use tokio::time;
 use tracing::error;
 
+use chrono::{Local, NaiveTime, Timelike};
+
+const NIGHT_INTERVAL: Duration = Duration::from_secs(3 * 60 * 60);
+
 pub(crate) fn next_delay<R: Rng>(rng: &mut R, interval: Duration, jitter: Duration) -> Duration {
     let jitter_seconds = jitter.as_secs();
     let interval_seconds = interval.as_secs();
@@ -13,6 +17,10 @@ pub(crate) fn next_delay<R: Rng>(rng: &mut R, interval: Duration, jitter: Durati
     let maximum = interval_seconds.saturating_add(jitter_seconds);
 
     Duration::from_secs(rng.gen_range(minimum..=maximum))
+}
+
+fn interval_at(time: NaiveTime) -> Option<Duration> {
+    (time.hour() >= 22 || time.hour() < 2).then_some(NIGHT_INTERVAL)
 }
 
 pub(crate) async fn run_schedule<F, Fut, E>(
@@ -26,6 +34,7 @@ pub(crate) async fn run_schedule<F, Fut, E>(
     E: std::fmt::Display,
 {
     loop {
+        let interval = interval_at(Local::now().time()).unwrap_or(interval);
         let delay = next_delay(&mut rand::thread_rng(), interval, jitter);
         tokio::select! {
             changed = shutdown.changed() => {
@@ -53,10 +62,20 @@ pub(crate) async fn run_schedule<F, Fut, E>(
 
 #[cfg(test)]
 mod tests {
-    use super::next_delay;
     use rand::SeedableRng;
     use rand::rngs::StdRng;
+    use super::{interval_at, next_delay, NIGHT_INTERVAL};
+    use chrono::NaiveTime;
+
     use std::time::Duration;
+
+    #[test]
+    fn overnight_interval_is_longer_only_during_quiet_hours() {
+        assert_eq!(interval_at(NaiveTime::from_hms_opt(21, 59, 0).unwrap()), None);
+        assert_eq!(interval_at(NaiveTime::from_hms_opt(22, 0, 0).unwrap()), Some(NIGHT_INTERVAL));
+        assert_eq!(interval_at(NaiveTime::from_hms_opt(1, 59, 0).unwrap()), Some(NIGHT_INTERVAL));
+        assert_eq!(interval_at(NaiveTime::from_hms_opt(2, 0, 0).unwrap()), None);
+    }
 
     #[test]
     fn delay_stays_within_interval_and_jitter_bounds() {
