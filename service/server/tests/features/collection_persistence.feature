@@ -8,3 +8,10 @@ Feature: Persist collected fuel prices
     When the real collector processes the simulator HTML
     Then eight current station prices are queryable
     And MyESSO has its expected address and price
+
+  Scenario: Collect prices from the current Mehr-Tanken page
+    Given the Mehr-Tanken Dresden page is the input
+    And the database is initialized with the application schema
+    When the real collector processes the simulator HTML
+    Then current Mehr-Tanken prices are queryable
+    And JET has its expected address and price
