@@ -33,3 +33,5 @@ url = { workspace = true }
 
 [dev-dependencies]
 refuel-sim = { path = "../../sim" }
+diesel = { workspace = true }
+

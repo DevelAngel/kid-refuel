@@ -2617,6 +2617,7 @@ dependencies = [
  "axum-macros",
  "chrono",
  "clap",
+ "diesel",
  "lazy_static",
  "leptos",
  "leptos_axum",
