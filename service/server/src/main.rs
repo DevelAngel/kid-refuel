@@ -5,16 +5,14 @@ mod parse;
 mod save;
 
 mod collection;
-mod fallback;
 
 use crate::download::*;
 use crate::load::*;
 use crate::parse::*;
 use crate::save::*;
 
-use crate::fallback::file_and_error_handler;
-
 use refuel_app::prelude::App;
+use refuel_app::shell;
 use refuel_db::*;
 
 use leptos::prelude::*;
@@ -23,6 +21,7 @@ use rand::prelude::*;
 
 use axum::{Router, routing::get};
 use clap::{Parser, Subcommand, Args};
+
 use leptos_axum::{generate_route_list, LeptosRoutes};
 use std::path::PathBuf;
 use tokio::signal;
@@ -186,6 +185,7 @@ async fn cmd_run_loop(url: &Url, dry_run: bool) -> Result<(), Box<dyn std::error
     Ok(())
 }
 
+
 fn app() -> impl IntoView {
     view! { <App /> }
 }
@@ -210,10 +210,13 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
         let leptos_options = conf.leptos_options;
         let addr = leptos_options.site_addr;
         let routes = generate_route_list(app);
+        let shell_options = leptos_options.clone();
+
         let app = Router::new()
             .route("/api/{*fn_name}", get(leptos_axum::handle_server_fns).post(leptos_axum::handle_server_fns))
-            .route("/favicon.ico", get(file_and_error_handler))
-            .leptos_routes(&leptos_options, routes, app)
+
+            .leptos_routes(&leptos_options, routes, move || shell(shell_options.clone()))
+            .fallback(leptos_axum::file_and_error_handler(shell))
             .layer(TraceLayer::new_for_http())
             .with_state(leptos_options);
         let listener = tokio::net::TcpListener::bind(addr).await?;
