@@ -4,6 +4,7 @@ mod load;
 mod parse;
 mod save;
 
+mod collection;
 mod fallback;
 
 use crate::download::*;
@@ -25,6 +26,7 @@ use clap::{Parser, Subcommand, Args};
 use leptos_axum::{generate_route_list, LeptosRoutes};
 use std::path::PathBuf;
 use tokio::signal;
+use tokio::sync::watch;
 use tokio::time::{self, Duration};
 use tower_http::trace::TraceLayer;
 use url::Url;
@@ -154,11 +156,18 @@ async fn cmd_run_single(url: &Url, downloaded: &Option<PathBuf>, dry_run: bool) 
 #[tracing::instrument(skip(url))]
 async fn cmd_run_loop(url: &Url, dry_run: bool) -> Result<(), Box<dyn std::error::Error>> {
     let mut rng = rand::thread_rng();
-    let interval = Duration::from_secs(20 * 60); // 20 min
+    let interval = Duration::from_secs(60 * 60); // 60 min
+    let mut first_run = true;
     loop {
-        cmd_run_single(url, &None, dry_run).await?;
+        match cmd_run_single(url, &None, dry_run).await {
+            Ok(()) => {}
+            Err(error) if first_run => return Err(error),
+            Err(error) => tracing::error!("scheduled collection failed; continuing: {error}"),
+        }
+        first_run = false;
 
-        let sleep_time = calc_duration(&mut rng, &interval); // 10min .. 30min
+
+        let sleep_time = calc_duration(&mut rng, &interval); // 50min .. 70min
         info!("sleep for {:.2} min..", sleep_time.as_secs_f32() / 60.0);
 
         let mut shutdown = false;
@@ -197,22 +206,14 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
             Commands::Run { common, dry_run } => { cmd_run_loop(&common.url, dry_run.to_owned()).await? }
         }
     } else {
-        let conf = get_configuration(None).unwrap();
+        let conf = get_configuration(None)?;
         let leptos_options = conf.leptos_options;
         let addr = leptos_options.site_addr;
-
-
-        // Generate the list of routes in your Leptos App
         let routes = generate_route_list(app);
-
         let app = Router::new()
             .route("/api/{*fn_name}", get(leptos_axum::handle_server_fns).post(leptos_axum::handle_server_fns))
             .route("/favicon.ico", get(file_and_error_handler))
-            .leptos_routes(
-                &leptos_options,
-                routes,
-                app
-            )
+            .leptos_routes(&leptos_options, routes, app)
             .route(
                 "/api/{*fn_name}",
                 get(leptos_axum::handle_server_fns)
@@ -220,9 +221,58 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
             )
             .layer(TraceLayer::new_for_http())
             .with_state(leptos_options);
-        info!("listening on http://{}", &addr);
         let listener = tokio::net::TcpListener::bind(addr).await?;
-        axum::serve(listener, app).await?;
+        info!("listening on http://{}", &addr);
+
+        let (shutdown_tx, shutdown_rx) = watch::channel(false);
+        let mut server_shutdown = shutdown_rx.clone();
+        let mut server = tokio::spawn(async move {
+            axum::serve(listener, app)
+                .with_graceful_shutdown(async move {
+                    while !*server_shutdown.borrow() {
+                        if server_shutdown.changed().await.is_err() {
+                            break;
+                        }
+                    }
+                })
+                .await
+        });
+
+        if let Err(error) = cmd_run_single(&cli.common.url, &None, false).await {
+            let _ = shutdown_tx.send(true);
+            let _ = server.await;
+            return Err(error);
+        }
+
+        let url = cli.common.url.clone();
+        let collector = collection::run_schedule(
+            move || {
+                let url = url.clone();
+                async move { cmd_run_single(&url, &None, false).await }
+            },
+            shutdown_rx,
+            Duration::from_secs(60 * 60),
+            Duration::from_secs(10 * 60),
+        );
+        tokio::pin!(collector);
+
+
+        tokio::select! {
+            result = signal::ctrl_c() => {
+                result?;
+                info!("CTRL+C pressed; shutting down");
+            }
+            result = &mut server => {
+                result??;
+                let _ = shutdown_tx.send(true);
+                collector.await;
+                return Ok(());
+            }
+        }
+
+        let _ = shutdown_tx.send(true);
+        collector.await;
+        server.await??;
     }
 
     Ok(())

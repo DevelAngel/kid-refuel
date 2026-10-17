@@ -6,16 +6,15 @@
 2. Start the web server task.
 3. Run the first collection while the web server is available.
 4. If the first collection fails, initiate shutdown, stop the web server, and exit with an error.
-5. If it succeeds, keep the server running and wait for collection requests from the control socket.
+5. If it succeeds, schedule collections internally, waiting 50 to 70 minutes after each completed run.
 
-## Triggered collection
+## Scheduled collection
 
-1. systemd activates the timer's one-shot service.
-2. The service runs a lightweight trigger client that connects to the server's Unix control socket.
-3. The server performs the collection and sends a success or error response.
-4. The client exits successfully only when the server reports a successful collection; failures are visible to systemd and logs.
+1. After a collection completes, choose a fresh randomized wait between 50 and 70 minutes.
+2. Run the next collection after the wait; do not overlap collection runs.
+3. Log collection failures and continue with the next randomized wait.
+4. On shutdown, stop the scheduler and cancel and await any in-progress collection.
 
-The socket unit owns the socket and passes it to the server through socket activation, avoiding a race between server startup and timer execution.
 
 
 ## Shutdown

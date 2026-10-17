@@ -2,7 +2,7 @@
 
 The current workspace contains these primary building blocks:
 
-- **refuel-server** — application entry point, initial collection, web server integration, control socket, and trigger client command.
+- **refuel-server** — application entry point, managed collection lifecycle, randomized scheduler, and web server integration.
 - **refuel-db** — SQLite connection setup, schema, persistence, and database queries.
 - **refuel-app** — Leptos UI and server-side application functions.
 - **refuel-front** — WebAssembly frontend hydration.
