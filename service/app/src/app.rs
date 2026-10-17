@@ -15,7 +15,7 @@ pub fn App() -> impl IntoView {
     view! {
         <Title text="Refuel WebApp"/>
         <Link rel="shortcut icon" type_="image/ico" href="/favicon.ico"/>
-        <Stylesheet id="refuel" href="/tailwind.css"/>
+        <Stylesheet id="refuel" href="/pkg/refuel.css"/>
         <Router>
             <NavBar/>
             <main class="min-h-screen bg-slate-950 px-4 py-8 text-slate-100 sm:px-6 lg:px-8">

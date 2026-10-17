@@ -17,7 +17,7 @@ tokio = { workspace = true, features = ["time"], optional = true }
 tracing = { workspace = true }
 
 [features]
-default = ["hydrate"]
+default = []
 hydrate = [
 	"leptos/hydrate",
 ]
