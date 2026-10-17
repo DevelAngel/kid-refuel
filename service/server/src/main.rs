@@ -217,6 +217,7 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
 
         let app = Router::new()
             .route("/api/{*fn_name}", get(leptos_axum::handle_server_fns).post(leptos_axum::handle_server_fns))
+            .route("/pkg/{*path}", get(file_and_error_handler))
             .route("/favicon.ico", get(file_and_error_handler))
 
             .leptos_routes(&leptos_options, routes, move || shell(shell_options.clone()))
