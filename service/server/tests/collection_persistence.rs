@@ -34,6 +34,17 @@ impl CollectionWorld {
     }
 }
 
+#[given("the Mehr-Tanken Dresden page is the input")]
+async fn mehr_tanken_page_is_input(world: &mut CollectionWorld) {
+    let fixture = concat!(
+        env!("CARGO_MANIFEST_DIR"),
+        "/../../examples/https___www.mehr-tanken.de_regional-tanken_sachsen_dresden_01067_.html"
+    );
+    std::fs::copy(fixture, world.html_path())
+        .expect("Mehr-Tanken HTML should be copied");
+}
+
+
 #[given("the simulator provides eight fuel stations")]
 async fn simulator_provides_eight_stations(world: &mut CollectionWorld) {
     let fixture = refuel_sim::render_home().expect("simulator page should render");
@@ -97,6 +108,31 @@ async fn my_esso_has_expected_address_and_price(world: &mut CollectionWorld) {
             && station.price == [1, 78, 9]
     }));
 }
+
+#[then("current Mehr-Tanken prices are queryable")]
+async fn current_mehr_tanken_prices_are_queryable(world: &mut CollectionWorld) {
+    let connection = SqliteConnection::establish(&world.database_path().to_string_lossy())
+        .expect("persisted database should be queryable");
+    let mut connection = AnyConnection::Sqlite(connection);
+    let current = StationPriceChange::load_current(&mut connection)
+        .expect("persisted current prices should be queryable");
+    assert!(!current.is_empty());
+}
+
+#[then("JET has its expected address and price")]
+async fn jet_has_expected_address_and_price(world: &mut CollectionWorld) {
+    let connection = SqliteConnection::establish(&world.database_path().to_string_lossy())
+        .expect("persisted database should be queryable");
+    let mut connection = AnyConnection::Sqlite(connection);
+    let current = StationPriceChange::load_current(&mut connection)
+        .expect("persisted current prices should be queryable");
+    assert!(current.iter().any(|station| {
+        station.name == "JET"
+            && station.addr == "Peschelstr. 36, 01139 Dresden"
+            && station.price == [2, 12, 9]
+    }));
+}
+
 
 #[tokio::test]
 async fn gherkin_features() {
