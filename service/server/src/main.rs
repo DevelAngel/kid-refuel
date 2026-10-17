@@ -15,6 +15,7 @@ use crate::save::*;
 use crate::fallback::file_and_error_handler;
 
 use refuel_app::prelude::App;
+use refuel_app::shell;
 use refuel_db::*;
 
 use leptos::prelude::*;
@@ -23,7 +24,6 @@ use rand::prelude::*;
 
 use axum::{Router, routing::get};
 use clap::{Parser, Subcommand, Args};
-use leptos_meta::MetaTags;
 
 use leptos_axum::{generate_route_list, LeptosRoutes};
 use std::path::PathBuf;
@@ -186,24 +186,6 @@ async fn cmd_run_loop(url: &Url, dry_run: bool) -> Result<(), Box<dyn std::error
     }
     info!("graceful shutdown");
     Ok(())
-}
-
-fn shell(options: leptos::config::LeptosOptions) -> impl IntoView {
-    view! {
-        <!DOCTYPE html>
-        <html lang="en">
-            <head>
-                <meta charset="utf-8"/>
-                <meta name="viewport" content="width=device-width, initial-scale=1"/>
-                <AutoReload options=options.clone()/>
-                <HydrationScripts options/>
-                <MetaTags/>
-            </head>
-            <body>
-                <App/>
-            </body>
-        </html>
-    }
 }
 
 
