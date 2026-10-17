@@ -5,14 +5,11 @@ mod parse;
 mod save;
 
 mod collection;
-mod fallback;
 
 use crate::download::*;
 use crate::load::*;
 use crate::parse::*;
 use crate::save::*;
-
-use crate::fallback::file_and_error_handler;
 
 use refuel_app::prelude::App;
 use refuel_app::shell;
@@ -217,10 +214,9 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
 
         let app = Router::new()
             .route("/api/{*fn_name}", get(leptos_axum::handle_server_fns).post(leptos_axum::handle_server_fns))
-            .route("/pkg/{*path}", get(file_and_error_handler))
-            .route("/favicon.ico", get(file_and_error_handler))
 
             .leptos_routes(&leptos_options, routes, move || shell(shell_options.clone()))
+            .fallback(leptos_axum::file_and_error_handler(shell))
             .layer(TraceLayer::new_for_http())
             .with_state(leptos_options);
         let listener = tokio::net::TcpListener::bind(addr).await?;
