@@ -85,6 +85,10 @@ pub(crate) async fn parse(document: &Html) -> Result<VecDeque<StationPriceChange
         reason: error.to_string(),
     })?;
 
+    if document.select(&price_list_selector).next().is_none() {
+        return parse_mehr_tanken(document);
+    }
+
     let price_list = document
         .select(&price_list_selector)
         .next()
@@ -112,6 +116,69 @@ pub(crate) async fn parse(document: &Html) -> Result<VecDeque<StationPriceChange
 
     Ok(stations)
 }
+fn parse_mehr_tanken(document: &Html) -> Result<VecDeque<StationPriceChange>> {
+    let station_selector = selector("a[href^=\"/tankstelle/\"]")?;
+    let price_container_selector = selector("[class*=\"gasStationInfo_gas-price\"]")?;
+    let info_container_selector = selector("[class*=\"gasStationInfo_gas-info\"]")?;
+    let price_selector = selector("[class*=\"gasStationInfo_gas-price\"] > div:first-child")?;
+    let updated_selector = selector("[class*=\"gasStationInfo_gas-price\"] > div:nth-child(2)")?;
+    let name_selector = selector("[class*=\"gasStationInfo_gas-info\"] .va-headline")?;
+    let address_selector = selector("[class*=\"gasStationInfo_gas-info\"] p.va-text")?;
+    let updated_regex = Regex::new(
+        r"(?P<day>\d{1,2})\.(?P<month>\d{1,2})\.(?:\s*(?P<year>\d{4}))?\s*(?P<hour>\d{1,2}):(?P<minute>\d{2})"
+    )
+    .map_err(|error| ParseError::InvalidPattern {
+        pattern: "timestamp",
+        reason: error.to_string(),
+    })?;
+    let price_regex = Regex::new(r"(?P<eur>\d{1,2})[,.](?P<cent>\d{2})")
+        .map_err(|error| ParseError::InvalidPattern {
+            pattern: "price",
+            reason: error.to_string(),
+        })?;
+
+    let mut stations = VecDeque::with_capacity(20);
+    for element in document.select(&station_selector) {
+        if element.select(&price_container_selector).next().is_none()
+            || element.select(&info_container_selector).next().is_none()
+        {
+            continue;
+        }
+
+        let parsed: Result<StationPriceChange> = (|| {
+            let name = parse_text(&element, &name_selector, "station name")?;
+            let addr = parse_text(&element, &address_selector, "station address")?;
+            let updated = parse_updated(&element, &updated_selector, &updated_regex)?;
+            let value = parse_text(&element, &price_selector, "price")?;
+            let captures = price_regex
+                .captures(&value)
+                .ok_or_else(|| ParseError::InvalidPrice { value: value.clone() })?;
+            let parse_part = |name: &str| {
+                captures.name(name).and_then(|value| value.as_str().parse::<u8>().ok())
+            };
+            let eur = parse_part("eur").ok_or_else(|| ParseError::InvalidPrice { value: value.clone() })?;
+            let cent = parse_part("cent").ok_or_else(|| ParseError::InvalidPrice { value: value.clone() })?;
+
+            Ok(StationPriceChange {
+                station: Station { name, addr },
+                price_change: PriceChange { price: [eur, cent, 9], updated },
+            })
+        })();
+
+        match parsed {
+            Ok(station) => stations.push_back(station),
+            Err(error) => debug!("skipping invalid Mehr-Tanken entry: {error}"),
+        }
+    }
+
+    if stations.is_empty() {
+        return Err(ParseError::MissingPriceList);
+    }
+
+    Ok(stations)
+}
+
+
 
 fn selector(value: &'static str) -> Result<Selector> {
     Selector::parse(value).map_err(|error| ParseError::InvalidSelector {
