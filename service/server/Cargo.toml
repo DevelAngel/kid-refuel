@@ -34,4 +34,5 @@ url = { workspace = true }
 [dev-dependencies]
 refuel-sim = { path = "../../sim" }
 diesel = { workspace = true }
+assert_fs = "1.1"
 
