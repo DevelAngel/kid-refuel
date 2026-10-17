@@ -214,11 +214,6 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
             .route("/api/{*fn_name}", get(leptos_axum::handle_server_fns).post(leptos_axum::handle_server_fns))
             .route("/favicon.ico", get(file_and_error_handler))
             .leptos_routes(&leptos_options, routes, app)
-            .route(
-                "/api/{*fn_name}",
-                get(leptos_axum::handle_server_fns)
-                    .post(leptos_axum::handle_server_fns),
-            )
             .layer(TraceLayer::new_for_http())
             .with_state(leptos_options);
         let listener = tokio::net::TcpListener::bind(addr).await?;
