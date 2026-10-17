@@ -35,4 +35,6 @@ url = { workspace = true }
 refuel-sim = { path = "../../sim" }
 diesel = { workspace = true }
 assert_fs = "1.1"
+cucumber = { version = "0.21", features = ["macros"] }
+
 
