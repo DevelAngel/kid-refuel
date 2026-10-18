@@ -13,6 +13,11 @@ and station price history through a web application.
   ```sh
   cargo install diesel_cli --no-default-features --features sqlite
   ```
+- cargo-leptos to build the browser bundle and serve the web application:
+
+  ```sh
+  cargo install cargo-leptos --locked
+  ```
 
 ## Build and test
 
@@ -62,8 +67,13 @@ cargo run -p refuel-sim
 Then start the server in another terminal:
 
 ```sh
-cargo run -p refuel-server -- --url http://localhost:8080
+cargo leptos serve
 ```
+
+Always build and start the web server through cargo-leptos (`just build`,
+`just serve`, `just release`). Plain `cargo run` does not generate the browser
+bundle and may reference differently named WASM files, so the browser requests
+files that do not exist.
 
 The server binds to the address configured by Leptos; verify the effective
 address in the Leptos configuration before connecting. The collector uses the
