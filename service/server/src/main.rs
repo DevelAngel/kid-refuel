@@ -18,7 +18,7 @@ use refuel_app::prelude::App;
 use refuel_db::*;
 
 use leptos::prelude::*;
-use leptos::config::get_configuration;
+use leptos::prelude::get_configuration;
 use rand::prelude::*;
 
 use axum::{Router, routing::get};
