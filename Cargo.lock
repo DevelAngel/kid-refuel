@@ -2901,7 +2901,7 @@ dependencies = [
 
 [[package]]
 name = "refuel-app"
-version = "0.3.0"
+version = "0.4.0"
 dependencies = [
  "chrono",
  "leptos",
@@ -2915,7 +2915,7 @@ dependencies = [
 
 [[package]]
 name = "refuel-db"
-version = "0.3.0"
+version = "0.4.0"
 dependencies = [
  "chrono",
  "diesel",
@@ -2931,7 +2931,7 @@ dependencies = [
 
 [[package]]
 name = "refuel-front"
-version = "0.3.0"
+version = "0.4.0"
 dependencies = [
  "console_error_panic_hook",
  "leptos",
@@ -2944,7 +2944,7 @@ dependencies = [
 
 [[package]]
 name = "refuel-server"
-version = "0.3.0"
+version = "0.4.0"
 dependencies = [
  "assert_fs",
  "axum",
@@ -2977,7 +2977,7 @@ dependencies = [
 
 [[package]]
 name = "refuel-sim"
-version = "0.3.0"
+version = "0.4.0"
 dependencies = [
  "askama",
  "askama_axum",
