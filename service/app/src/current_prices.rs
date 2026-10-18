@@ -38,7 +38,7 @@ pub fn CurrentPrices() -> impl IntoView {
     }
 }
 
-#[server(GetCurrentPrices, "/api", "GetCbor")]
+#[server(endpoint = "get_current_prices")]
 pub async fn get_current_prices() -> Result<Vec<StationPriceChange>, ServerFnError> {
     use refuel_db::establish_connection_sqlite;
     use refuel_db::prelude::StationPriceChange as DBStationPriceChange;

@@ -38,7 +38,7 @@ pub fn AllPrices() -> impl IntoView {
     }
 }
 
-#[server(GetAllPrices, "/api", "GetCbor")]
+#[server(endpoint = "get_all_prices")]
 pub async fn get_all_prices() -> Result<Vec<StationPriceChange>, ServerFnError> {
     use refuel_db::establish_connection_sqlite;
     use refuel_db::prelude::StationPriceChange as DBStationPriceChange;
