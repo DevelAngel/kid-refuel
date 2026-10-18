@@ -6,6 +6,9 @@ edition = "2024"
 
 # See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
 
+[lints]
+workspace = true
+
 [dependencies]
 refuel-db = { path = "../db", optional = true }
 chrono = { workspace = true, features = ["serde"] }
