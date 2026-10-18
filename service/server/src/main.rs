@@ -19,7 +19,7 @@ use leptos::prelude::*;
 use leptos::prelude::get_configuration;
 use rand::prelude::*;
 
-use axum::{Router, routing::get};
+use axum::Router;
 use clap::{Parser, Subcommand, Args};
 
 use leptos_axum::{generate_route_list, LeptosRoutes};
@@ -213,8 +213,6 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
         let shell_options = leptos_options.clone();
 
         let app = Router::new()
-            .route("/api/{*fn_name}", get(leptos_axum::handle_server_fns).post(leptos_axum::handle_server_fns))
-
             .leptos_routes(&leptos_options, routes, move || shell(shell_options.clone()))
             .fallback(leptos_axum::file_and_error_handler(shell))
             .layer(TraceLayer::new_for_http())

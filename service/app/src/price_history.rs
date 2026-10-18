@@ -103,7 +103,7 @@ pub fn StationPriceHistory() -> impl IntoView {
     }
 }
 
-#[server(GetStations, "/api", "GetCbor")]
+#[server(endpoint = "get_stations")]
 pub async fn get_stations() -> Result<Vec<Station>, ServerFnError> {
     use refuel_db::establish_connection_sqlite;
     use refuel_db::prelude::Station as DBStation;
@@ -116,7 +116,7 @@ pub async fn get_stations() -> Result<Vec<Station>, ServerFnError> {
     Ok(list)
 }
 
-#[server(GetPriceHistory, "/api", "GetCbor")]
+#[server(endpoint = "get_price_history")]
 pub async fn get_price_history(station_id: i32) -> Result<Vec<StationPriceChange>, ServerFnError> {
     use refuel_db::establish_connection_sqlite;
     use refuel_db::prelude::StationPriceChange as DBStationPriceChange;
