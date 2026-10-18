@@ -19,7 +19,7 @@ lto = true
 opt-level = 'z'
 
 [workspace.package]
-version = "0.3.0"
+version = "0.4.0"
 authors = [
     "Angelos Drossos"
 ]
@@ -71,6 +71,4 @@ assets-dir = "service/public"
 site-addr = "127.0.0.1:3000"
 reload-port = 3001
 browserquery = "defaults"
-watch = false
-env = "DEV"
 tailwind-input-file = "service/style/tailwind.css"
