@@ -264,6 +264,11 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
                 collector.await;
                 return Ok(());
             }
+            _ = &mut collector => {
+                let _ = shutdown_tx.send(true);
+                server.await??;
+                return Ok(());
+            }
         }
 
         let _ = shutdown_tx.send(true);
