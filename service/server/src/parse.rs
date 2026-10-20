@@ -9,6 +9,11 @@ use tracing::debug;
 
 type Result<T> = std::result::Result<T, ParseError>;
 
+pub(crate) struct ParsedPrices {
+    pub stations: VecDeque<StationPriceChange>,
+    pub rejected_entries: usize,
+}
+
 pub struct Station {
     pub name: String,
     pub addr: String,
@@ -63,7 +68,7 @@ impl StationPriceChange {
 
 }
 #[tracing::instrument(skip(document))]
-pub(crate) async fn parse(document: &Html) -> Result<VecDeque<StationPriceChange>> {
+pub(crate) async fn parse(document: &Html) -> Result<ParsedPrices> {
     let price_list_selector = selector(".PriceList")?;
     let price_item_selector = selector(".PriceList__item:not(.list-ad)")?;
     let name_selector = selector(".PriceList__itemTitle")?;
@@ -95,6 +100,8 @@ pub(crate) async fn parse(document: &Html) -> Result<VecDeque<StationPriceChange
         .ok_or(ParseError::MissingPriceList)?;
 
     let mut stations = VecDeque::with_capacity(20);
+    let mut rejected_entries = 0;
+
     for element in price_list.select(&price_item_selector) {
         let parsed: Result<StationPriceChange> = (|| {
             let name = parse_text(&element, &name_selector, "station name")?;
@@ -110,13 +117,16 @@ pub(crate) async fn parse(document: &Html) -> Result<VecDeque<StationPriceChange
 
         match parsed {
             Ok(station) => stations.push_back(station),
-            Err(error) => debug!("skipping invalid price list entry: {error}"),
+            Err(error) => {
+                rejected_entries += 1;
+                debug!("skipping invalid price list entry: {error}");
+            }
         }
     }
 
-    Ok(stations)
+    Ok(ParsedPrices { stations, rejected_entries })
 }
-fn parse_mehr_tanken(document: &Html) -> Result<VecDeque<StationPriceChange>> {
+fn parse_mehr_tanken(document: &Html) -> Result<ParsedPrices> {
     let station_selector = selector("a[href^=\"/tankstelle/\"]")?;
     let price_container_selector = selector("[class*=\"gasStationInfo_gas-price\"]")?;
     let info_container_selector = selector("[class*=\"gasStationInfo_gas-info\"]")?;
@@ -136,6 +146,8 @@ fn parse_mehr_tanken(document: &Html) -> Result<VecDeque<StationPriceChange>> {
             pattern: "price",
             reason: error.to_string(),
         })?;
+
+    let mut rejected_entries = 0;
 
     let mut stations = VecDeque::with_capacity(20);
     for element in document.select(&station_selector) {
@@ -167,15 +179,19 @@ fn parse_mehr_tanken(document: &Html) -> Result<VecDeque<StationPriceChange>> {
 
         match parsed {
             Ok(station) => stations.push_back(station),
-            Err(error) => debug!("skipping invalid Mehr-Tanken entry: {error}"),
+            Err(error) => {
+                rejected_entries += 1;
+                debug!("skipping invalid Mehr-Tanken entry: {error}");
+            }
         }
+
     }
 
     if stations.is_empty() {
         return Err(ParseError::MissingPriceList);
     }
 
-    Ok(stations)
+    Ok(ParsedPrices { stations, rejected_entries })
 }
 
 

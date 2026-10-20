@@ -15,3 +15,13 @@ Feature: Persist collected fuel prices
     When the real collector processes the simulator HTML
     Then current Mehr-Tanken prices are queryable
     And JET has its expected address and price
+
+  Scenario: Keep only the latest twenty collection diagnostics
+    When twenty-one collection diagnostics are recorded
+    Then the collection history contains only the latest twenty runs
+
+
+  Scenario: Limit stored response excerpts to sixteen KiB
+    When a long response body is stored as an excerpt
+    Then the response excerpt is bounded and valid UTF-8
+

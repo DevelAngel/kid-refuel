@@ -40,6 +40,7 @@ cucumber = { version = "0.21", features = ["macros"] }
 diesel = { version = "2.1.0", default-features = false, features = ["with-deprecated", "chrono", "sqlite", "returning_clauses_for_sqlite_3_35"] }
 dotenvy = "0.15.7"
 hyper = "0.14.26"
+http = "1"
 libsqlite3-sys = { version = "0.38.2", features = ["bundled"] }
 lazy_static = "1.4.0"
 leptos = { version = "0.8.2", features = ["tracing"] }
@@ -58,7 +59,7 @@ tower-http = { version = "0.6", features = ["fs", "trace"] }
 tracing = { version = "0.1.37" }
 tracing-subscriber = { version = "0.3.17", features = ["env-filter"] }
 tracing-wasm = "0.2.1"
-url = "2.3.1"
+url = { version = "2.3.1", features = ["serde"] }
 wasm-bindgen = "0.2"
 
 [[workspace.metadata.leptos]]
