@@ -11,7 +11,7 @@ use crate::load::*;
 use crate::parse::*;
 use crate::save::*;
 
-use refuel_app::prelude::App;
+use refuel_app::prelude::{App, CollectionDiagnostic, record_collection_diagnostic};
 use refuel_app::shell;
 use refuel_db::*;
 
@@ -107,13 +107,71 @@ async fn cmd_download(url: &Url, filename: &Option<PathBuf>) -> Result<(), Box<d
 
 #[tracing::instrument(skip(url))]
 async fn cmd_run_single(url: &Url, downloaded: &Option<PathBuf>, dry_run: bool) -> Result<(), Box<dyn std::error::Error>> {
-    let document = if let Some(downloaded) = downloaded {
-        load_file(downloaded).await?
+    let started_at = chrono::Local::now().to_rfc3339();
+    let started = std::time::Instant::now();
+    let (document, body, http_status, http_duration) = if let Some(downloaded) = downloaded {
+        let document = load_file(downloaded).await?;
+        let body = document.html();
+        (document, body, None, None)
     } else {
-        download(url).await?
+        match download_with_details(url).await {
+            Ok(page) => (page.document, page.body, Some(page.status), Some(page.duration)),
+            Err(error) => {
+                record_collection_diagnostic(CollectionDiagnostic {
+                    started_at,
+                    source_url: url.clone(),
+                    http_status: None,
+                    http_duration: None,
+                    duration: started.elapsed(),
+                    result: "download_failed".to_owned(),
+                    prices_found: 0,
+                    rejected_entries: 0,
+                    error: Some(error.to_string()),
+                    response_excerpt: None,
+                });
+                return Err(error);
+            }
+        }
     };
 
-    let refuel_stations = parse(&document).await?;
+    if let Some(status) = http_status.filter(|status| !status.is_success()) {
+        let error = format!("HTTP request failed with status {status}");
+        record_collection_diagnostic(CollectionDiagnostic {
+            started_at,
+            source_url: url.clone(),
+            http_status,
+            http_duration,
+            duration: started.elapsed(),
+            result: "http_failed".to_owned(),
+            prices_found: 0,
+            rejected_entries: 0,
+            error: Some(error.clone()),
+            response_excerpt: CollectionDiagnostic::response_excerpt(&body),
+        });
+        return Err(std::io::Error::other(error).into());
+    }
+
+    let parsed = match parse(&document).await {
+        Ok(parsed) => parsed,
+        Err(error) => {
+            record_collection_diagnostic(CollectionDiagnostic {
+                started_at,
+                source_url: url.clone(),
+                http_status,
+                http_duration,
+                duration: started.elapsed(),
+                result: "parse_failed".to_owned(),
+                prices_found: 0,
+                rejected_entries: 0,
+                error: Some(error.to_string()),
+                response_excerpt: CollectionDiagnostic::response_excerpt(&body),
+            });
+            return Err(error.into());
+        }
+    };
+
+    let rejected_entries = parsed.rejected_entries;
+    let refuel_stations = parsed.stations;
     let fetched = refuel_stations.len();
     if dry_run {
         for rs in refuel_stations.iter() {
@@ -148,6 +206,34 @@ async fn cmd_run_single(url: &Url, downloaded: &Option<PathBuf>, dry_run: bool) 
 
 
 
+
+    record_collection_diagnostic(CollectionDiagnostic {
+        started_at,
+        source_url: url.clone(),
+        http_status,
+        http_duration,
+        duration: started.elapsed(),
+        result: if fetched == 0 {
+            "empty_result"
+        } else if rejected_entries > 0 {
+            "partial_success"
+        } else {
+            "success"
+        }.to_owned(),
+        prices_found: fetched,
+        rejected_entries,
+        error: if fetched == 0 {
+            Some("Parser returned no prices".to_owned())
+        } else if rejected_entries > 0 {
+            Some(format!("{rejected_entries} invalid entries were skipped"))
+        } else {
+            None
+        },
+        response_excerpt: (fetched == 0 || rejected_entries > 0)
+            .then(|| CollectionDiagnostic::response_excerpt(&body))
+            .flatten(),
+
+    });
 
     Ok(())
 }
@@ -235,10 +321,9 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
         });
 
         if let Err(error) = cmd_run_single(&cli.common.url, &None, false).await {
-            let _ = shutdown_tx.send(true);
-            let _ = server.await;
-            return Err(error);
+            tracing::error!("initial collection failed; web server remains available: {error}");
         }
+
 
         let url = cli.common.url.clone();
         let collector = collection::run_schedule(

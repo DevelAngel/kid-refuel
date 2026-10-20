@@ -2,6 +2,8 @@ use cucumber::{given, then, when, World};
 use diesel::connection::SimpleConnection;
 use diesel::prelude::*;
 use refuel_db::prelude::{AnyConnection, StationPriceChange};
+use refuel_app::prelude::{CollectionDiagnostic, get_collection_diagnostics, record_collection_diagnostic};
+use refuel_app::prelude::MAX_RESPONSE_EXCERPT_BYTES;
 use std::path::PathBuf;
 use std::process::Command;
 
@@ -11,6 +13,7 @@ struct CollectionWorld {
     _directory: Option<assert_fs::TempDir>,
     database_path: Option<PathBuf>,
     html_path: Option<PathBuf>,
+    response_excerpt: Option<String>,
 }
 
 impl CollectionWorld {
@@ -21,6 +24,7 @@ impl CollectionWorld {
         Self {
             _directory: Some(directory),
             database_path: Some(database_path),
+            response_excerpt: None,
             html_path: Some(html_path),
         }
     }
@@ -131,6 +135,52 @@ async fn jet_has_expected_address_and_price(world: &mut CollectionWorld) {
             && station.addr == "Peschelstr. 36, 01139 Dresden"
             && station.price == [2, 12, 9]
     }));
+}
+
+
+#[when("twenty-one collection diagnostics are recorded")]
+async fn twenty_one_diagnostics_are_recorded(_world: &mut CollectionWorld) {
+    for index in 1..=21 {
+        record_collection_diagnostic(CollectionDiagnostic {
+            started_at: format!("2026-10-20T00:{index:02}:00+00:00"),
+            source_url: url::Url::parse(&format!("https://example.test/{index}")).expect("valid test URL"),
+            http_status: Some(http::StatusCode::OK),
+            http_duration: Some(std::time::Duration::from_millis(5)),
+            duration: std::time::Duration::from_millis(8),
+            result: "success".to_owned(),
+            prices_found: 1,
+            rejected_entries: 0,
+            error: None,
+            response_excerpt: None,
+        });
+    }
+}
+
+#[then("the collection history contains only the latest twenty runs")]
+async fn collection_history_contains_latest_twenty_runs(_world: &mut CollectionWorld) {
+    let history = get_collection_diagnostics()
+        .await
+        .expect("collection history should be readable");
+
+    assert_eq!(history.len(), 20);
+    assert_eq!(history.first().map(|run| run.source_url.as_str()), Some("https://example.test/21"));
+    assert_eq!(history.last().map(|run| run.source_url.as_str()), Some("https://example.test/2"));
+}
+
+
+#[when("a long response body is stored as an excerpt")]
+async fn long_response_body_is_stored_as_excerpt(world: &mut CollectionWorld) {
+    let body = format!("{}🧙", "a".repeat(MAX_RESPONSE_EXCERPT_BYTES - 2));
+    world.response_excerpt = CollectionDiagnostic::response_excerpt(&body);
+}
+
+#[then("the response excerpt is bounded and valid UTF-8")]
+async fn response_excerpt_is_bounded_and_valid_utf8(world: &mut CollectionWorld) {
+    let excerpt = world.response_excerpt.as_ref()
+        .expect("non-empty response should have an excerpt");
+
+    assert!(excerpt.len() <= MAX_RESPONSE_EXCERPT_BYTES);
+    assert!(excerpt.is_char_boundary(excerpt.len()));
 }
 
 

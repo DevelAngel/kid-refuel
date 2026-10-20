@@ -2904,6 +2904,7 @@ name = "refuel-app"
 version = "0.4.1"
 dependencies = [
  "chrono",
+ "http 1.5.0",
  "leptos",
  "leptos_meta",
  "leptos_router",
@@ -2911,6 +2912,7 @@ dependencies = [
  "serde",
  "tokio",
  "tracing",
+ "url",
 ]
 
 [[package]]
@@ -2953,6 +2955,7 @@ dependencies = [
  "clap",
  "cucumber",
  "diesel",
+ "http 1.5.0",
  "lazy_static",
  "leptos",
  "leptos_axum",
@@ -4233,6 +4236,7 @@ dependencies = [
  "idna",
  "percent-encoding",
  "serde",
+ "serde_derive",
 ]
 
 [[package]]

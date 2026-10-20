@@ -23,6 +23,7 @@ leptos_router = { workspace = true, features = ["ssr"] }
 leptos_axum = { workspace = true }
 rand = { workspace = true }
 regex = { workspace = true }
+http = { workspace = true }
 reqwest = { workspace = true }
 scraper = { workspace = true }
 serde = { workspace = true, features = ["derive"] }

@@ -15,7 +15,9 @@ chrono = { workspace = true, features = ["serde"] }
 leptos = { workspace = true }
 leptos_meta = { workspace = true }
 leptos_router = { workspace = true }
+http = { workspace = true }
 serde = { workspace = true }
+url = { workspace = true }
 tokio = { workspace = true, features = ["time"], optional = true }
 tracing = { workspace = true }
 

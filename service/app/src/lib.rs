@@ -4,6 +4,7 @@ mod about;
 mod all_prices;
 mod app;
 mod current_prices;
+mod collection_diagnostics;
 mod price_history;
 mod price_list;
 mod types;
