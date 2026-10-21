@@ -135,7 +135,7 @@ pub fn NavBar() -> impl IntoView {
 fn Footer() -> impl IntoView {
     view! {
         <footer class="border-t border-slate-900 bg-slate-950 px-4 py-4 text-center text-xs text-slate-600">
-            {concat!("kid refuel ", env!("CARGO_PKG_VERSION"))}
+            {match option_env!("KID_GIT_COMMIT") { Some(commit) => format!("kid refuel {} ({commit})", env!("CARGO_PKG_VERSION")), None => concat!("kid refuel ", env!("CARGO_PKG_VERSION")).to_owned() }}
         </footer>
     }
 }
