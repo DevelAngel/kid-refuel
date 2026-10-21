@@ -1,3 +1,4 @@
+use crate::fuel_price::FuelPrice;
 use crate::types::{Station, StationPriceChange};
 
 use chrono::prelude::*;
@@ -89,7 +90,7 @@ pub fn StationPriceHistory() -> impl IntoView {
                                         <tr>
                                             <td class="border-t border-slate-800 px-5 py-4 font-medium text-white"><div>{item.name}</div></td>
                                             <td class="border-t border-slate-800 px-5 py-4 text-slate-400"><address class="not-italic">{item.addr}</address></td>
-                                            <td class="border-t border-slate-800 px-5 py-4 text-2xl font-bold text-cyan-300"><span>{item.price[0]}", "{item.price[1]}<sup class="text-sm">{item.price[2]}</sup></span></td>
+                                            <td class="border-t border-slate-800 px-5 py-4 text-2xl font-bold text-cyan-300"><FuelPrice price=item.price/></td>
                                             <td class="border-t border-slate-800 px-5 py-4 whitespace-nowrap text-slate-400"><div>{item.updated.with_timezone(&Local).format("%Y-%m-%d %H:%M").to_string()}</div></td>
                                         </tr>
                                     })
