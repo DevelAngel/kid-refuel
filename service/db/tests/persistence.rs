@@ -1,16 +1,18 @@
 use chrono::NaiveDate;
 use diesel::connection::SimpleConnection;
 use diesel::prelude::*;
-use refuel_db::prelude::{
-    AnyConnection, NewPriceChange, NewStation, Station, StationPriceChange,
-};
+use refuel_db::prelude::{AnyConnection, NewPriceChange, NewStation, Station, StationPriceChange};
 
 fn legacy_connection() -> AnyConnection {
     let mut conn = SqliteConnection::establish(":memory:").unwrap();
-    conn.batch_execute(include_str!("../migrations/2023-06-14-215000_create_stations/up.sql"))
-        .unwrap();
-    conn.batch_execute(include_str!("../migrations/2023-06-17-192209_create_price_changes/up.sql"))
-        .unwrap();
+    conn.batch_execute(include_str!(
+        "../migrations/2023-06-14-215000_create_stations/up.sql"
+    ))
+    .unwrap();
+    conn.batch_execute(include_str!(
+        "../migrations/2023-06-17-192209_create_price_changes/up.sql"
+    ))
+    .unwrap();
     AnyConnection::Sqlite(conn)
 }
 
@@ -93,8 +95,16 @@ fn price_queries_return_current_prices_and_station_history() {
 
     let current = StationPriceChange::load_current(&mut conn).unwrap();
     assert_eq!(current.len(), 2);
-    assert!(current.iter().any(|item| item.name == "Alpha" && item.price == [1, 25, 0]));
-    assert!(current.iter().any(|item| item.name == "Beta" && item.price == [1, 40, 0]));
+    assert!(
+        current
+            .iter()
+            .any(|item| item.name == "Alpha" && item.price == [1, 25, 0])
+    );
+    assert!(
+        current
+            .iter()
+            .any(|item| item.name == "Beta" && item.price == [1, 40, 0])
+    );
 
     let history = StationPriceChange::load_station(first_station, &mut conn).unwrap();
     assert_eq!(history.len(), 2);
@@ -139,4 +149,3 @@ fn migration_deduplicates_existing_stations_and_observations() {
     assert_eq!(history.len(), 1);
     assert_eq!(history[0].price, [1, 23, 4]);
 }
-

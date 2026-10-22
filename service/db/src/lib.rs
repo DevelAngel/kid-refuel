@@ -32,4 +32,3 @@ pub fn establish_connection_sqlite() -> Result<AnyConnection, DatabaseError> {
 
     Ok(AnyConnection::Sqlite(conn))
 }
-

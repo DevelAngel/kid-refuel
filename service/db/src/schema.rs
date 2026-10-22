@@ -19,7 +19,4 @@ diesel::table! {
 
 diesel::joinable!(price_changes -> stations (station_id));
 
-diesel::allow_tables_to_appear_in_same_query!(
-    price_changes,
-    stations,
-);
+diesel::allow_tables_to_appear_in_same_query!(price_changes, stations,);

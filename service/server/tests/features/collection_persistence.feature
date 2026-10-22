@@ -24,4 +24,3 @@ Feature: Persist collected fuel prices
   Scenario: Limit stored response excerpts to sixteen KiB
     When a long response body is stored as an excerpt
     Then the response excerpt is bounded and valid UTF-8
-

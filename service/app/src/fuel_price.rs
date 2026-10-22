@@ -6,9 +6,7 @@ fn format_price(price: [u8; 3]) -> String {
 
 #[component]
 pub(crate) fn FuelPrice(price: [u8; 3]) -> impl IntoView {
-    view! {
-        <span>{format_price(price)}<sup class="text-[0.6em]">{price[2]}</sup></span>
-    }
+    view! { <span>{format_price(price)}<sup class="text-[0.6em]">{price[2]}</sup></span> }
 }
 
 #[cfg(test)]
@@ -25,4 +23,3 @@ mod tests {
         assert_eq!(format_price([1, 45, 9]), "1,45");
     }
 }
-

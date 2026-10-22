@@ -127,4 +127,3 @@ WHERE p.updated = (
 )
 ORDER BY s.id;
 ```
-

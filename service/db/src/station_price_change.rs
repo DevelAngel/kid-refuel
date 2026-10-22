@@ -141,6 +141,9 @@ mod test {
 
     #[test]
     fn rejects_negative_prices() {
-        assert!(matches!(convert_price(-1), Err(DatabaseError::InvalidPrice(-1))));
+        assert!(matches!(
+            convert_price(-1),
+            Err(DatabaseError::InvalidPrice(-1))
+        ));
     }
 }
