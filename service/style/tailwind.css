@@ -1,1 +1,18 @@
 @import 'tailwindcss';
+.price-history-chart ._chartistry_tick_label text {
+    fill: #cbd5e1;
+}
+
+.price-history-chart ._chartistry_tooltip {
+    background-color: #0f172a !important;
+    color: #f8fafc;
+}
+
+.price-history-chart ._chartistry_tooltip td,
+.price-history-chart ._chartistry_tooltip h2 {
+    color: #f8fafc;
+}
+
+.price-history-chart ._chartistry_tooltip svg text {
+    fill: #f8fafc;
+}
