@@ -40,5 +40,3 @@ refuel-sim = { path = "../../sim" }
 diesel = { workspace = true }
 assert_fs = { workspace = true }
 cucumber = { workspace = true }
-
-

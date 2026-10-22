@@ -62,43 +62,88 @@ pub(crate) async fn run_schedule<F, Fut, E>(
 
 #[cfg(test)]
 mod tests {
+    use super::{NIGHT_INTERVAL, interval_at, next_delay};
+    use chrono::NaiveTime;
     use rand::SeedableRng;
     use rand::rngs::StdRng;
-    use super::{interval_at, next_delay, NIGHT_INTERVAL};
-    use chrono::NaiveTime;
 
     use std::time::Duration;
 
     #[test]
     fn overnight_interval_is_longer_only_during_quiet_hours() {
-        assert_eq!(interval_at(NaiveTime::from_hms_opt(21, 59, 0).unwrap()), None);
-        assert_eq!(interval_at(NaiveTime::from_hms_opt(22, 0, 0).unwrap()), Some(NIGHT_INTERVAL));
-        assert_eq!(interval_at(NaiveTime::from_hms_opt(1, 59, 0).unwrap()), Some(NIGHT_INTERVAL));
+        assert_eq!(
+            interval_at(NaiveTime::from_hms_opt(21, 59, 0).unwrap()),
+            None
+        );
+        assert_eq!(
+            interval_at(NaiveTime::from_hms_opt(22, 0, 0).unwrap()),
+            Some(NIGHT_INTERVAL)
+        );
+        assert_eq!(
+            interval_at(NaiveTime::from_hms_opt(1, 59, 0).unwrap()),
+            Some(NIGHT_INTERVAL)
+        );
         assert_eq!(interval_at(NaiveTime::from_hms_opt(2, 0, 0).unwrap()), None);
     }
 
     #[test]
     fn first_issue_example_keeps_daytime_jitter_and_thins_the_night() {
-        assert_eq!(interval_at(NaiveTime::from_hms_opt(21, 33, 0).unwrap()), None);
-        assert_eq!(interval_at(NaiveTime::from_hms_opt(22, 27, 0).unwrap()), Some(NIGHT_INTERVAL));
-        assert_eq!(interval_at(NaiveTime::from_hms_opt(1, 27, 0).unwrap()), Some(NIGHT_INTERVAL));
-        assert_eq!(interval_at(NaiveTime::from_hms_opt(4, 27, 0).unwrap()), None);
+        assert_eq!(
+            interval_at(NaiveTime::from_hms_opt(21, 33, 0).unwrap()),
+            None
+        );
+        assert_eq!(
+            interval_at(NaiveTime::from_hms_opt(22, 27, 0).unwrap()),
+            Some(NIGHT_INTERVAL)
+        );
+        assert_eq!(
+            interval_at(NaiveTime::from_hms_opt(1, 27, 0).unwrap()),
+            Some(NIGHT_INTERVAL)
+        );
+        assert_eq!(
+            interval_at(NaiveTime::from_hms_opt(4, 27, 0).unwrap()),
+            None
+        );
     }
 
     #[test]
     fn second_issue_example_keeps_daytime_jitter_and_thins_the_night() {
-        assert_eq!(interval_at(NaiveTime::from_hms_opt(20, 46, 0).unwrap()), None);
-        assert_eq!(interval_at(NaiveTime::from_hms_opt(21, 39, 0).unwrap()), None);
-        assert_eq!(interval_at(NaiveTime::from_hms_opt(22, 39, 0).unwrap()), Some(NIGHT_INTERVAL));
-        assert_eq!(interval_at(NaiveTime::from_hms_opt(1, 39, 0).unwrap()), Some(NIGHT_INTERVAL));
-        assert_eq!(interval_at(NaiveTime::from_hms_opt(4, 39, 0).unwrap()), None);
+        assert_eq!(
+            interval_at(NaiveTime::from_hms_opt(20, 46, 0).unwrap()),
+            None
+        );
+        assert_eq!(
+            interval_at(NaiveTime::from_hms_opt(21, 39, 0).unwrap()),
+            None
+        );
+        assert_eq!(
+            interval_at(NaiveTime::from_hms_opt(22, 39, 0).unwrap()),
+            Some(NIGHT_INTERVAL)
+        );
+        assert_eq!(
+            interval_at(NaiveTime::from_hms_opt(1, 39, 0).unwrap()),
+            Some(NIGHT_INTERVAL)
+        );
+        assert_eq!(
+            interval_at(NaiveTime::from_hms_opt(4, 39, 0).unwrap()),
+            None
+        );
     }
 
     #[test]
     fn third_issue_example_keeps_daytime_jitter_and_thins_the_night() {
-        assert_eq!(interval_at(NaiveTime::from_hms_opt(20, 54, 0).unwrap()), None);
-        assert_eq!(interval_at(NaiveTime::from_hms_opt(22, 4, 0).unwrap()), Some(NIGHT_INTERVAL));
-        assert_eq!(interval_at(NaiveTime::from_hms_opt(1, 4, 0).unwrap()), Some(NIGHT_INTERVAL));
+        assert_eq!(
+            interval_at(NaiveTime::from_hms_opt(20, 54, 0).unwrap()),
+            None
+        );
+        assert_eq!(
+            interval_at(NaiveTime::from_hms_opt(22, 4, 0).unwrap()),
+            Some(NIGHT_INTERVAL)
+        );
+        assert_eq!(
+            interval_at(NaiveTime::from_hms_opt(1, 4, 0).unwrap()),
+            Some(NIGHT_INTERVAL)
+        );
         assert_eq!(interval_at(NaiveTime::from_hms_opt(4, 4, 0).unwrap()), None);
     }
     #[test]
@@ -170,5 +215,4 @@ mod tests {
         assert!(calls.load(Ordering::SeqCst) >= 2);
         assert!(!overlapped.load(Ordering::SeqCst));
     }
-
 }

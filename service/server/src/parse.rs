@@ -45,7 +45,10 @@ pub struct StationPriceChangeWithId {
 }
 
 impl StationPriceChange {
-    pub fn save(self, conn: &mut AnyConnection) -> std::result::Result<StationPriceChangeWithId, DatabaseError> {
+    pub fn save(
+        self,
+        conn: &mut AnyConnection,
+    ) -> std::result::Result<StationPriceChangeWithId, DatabaseError> {
         let station_id = NewStation {
             name: &self.station.name,
             addr: &self.station.addr,
@@ -65,7 +68,6 @@ impl StationPriceChange {
             price_change: self.price_change,
         })
     }
-
 }
 #[tracing::instrument(skip(document))]
 pub(crate) async fn parse(document: &Html) -> Result<ParsedPrices> {
@@ -82,13 +84,11 @@ pub(crate) async fn parse(document: &Html) -> Result<ParsedPrices> {
         pattern: "timestamp",
         reason: error.to_string(),
     })?;
-    let price_regex = Regex::new(
-        r"(?P<eur>\d{1,2})[,.](?P<cent>\d{2})\s*(?P<subcent>\d)"
-    )
-    .map_err(|error| ParseError::InvalidPattern {
-        pattern: "price",
-        reason: error.to_string(),
-    })?;
+    let price_regex = Regex::new(r"(?P<eur>\d{1,2})[,.](?P<cent>\d{2})\s*(?P<subcent>\d)")
+        .map_err(|error| ParseError::InvalidPattern {
+            pattern: "price",
+            reason: error.to_string(),
+        })?;
 
     if document.select(&price_list_selector).next().is_none() {
         return parse_mehr_tanken(document);
@@ -124,7 +124,10 @@ pub(crate) async fn parse(document: &Html) -> Result<ParsedPrices> {
         }
     }
 
-    Ok(ParsedPrices { stations, rejected_entries })
+    Ok(ParsedPrices {
+        stations,
+        rejected_entries,
+    })
 }
 fn parse_mehr_tanken(document: &Html) -> Result<ParsedPrices> {
     let station_selector = selector("a[href^=\"/tankstelle/\"]")?;
@@ -141,11 +144,12 @@ fn parse_mehr_tanken(document: &Html) -> Result<ParsedPrices> {
         pattern: "timestamp",
         reason: error.to_string(),
     })?;
-    let price_regex = Regex::new(r"(?P<eur>\d{1,2})[,.](?P<cent>\d{2})")
-        .map_err(|error| ParseError::InvalidPattern {
+    let price_regex = Regex::new(r"(?P<eur>\d{1,2})[,.](?P<cent>\d{2})").map_err(|error| {
+        ParseError::InvalidPattern {
             pattern: "price",
             reason: error.to_string(),
-        })?;
+        }
+    })?;
 
     let mut rejected_entries = 0;
 
@@ -162,18 +166,30 @@ fn parse_mehr_tanken(document: &Html) -> Result<ParsedPrices> {
             let addr = parse_text(&element, &address_selector, "station address")?;
             let updated = parse_updated(&element, &updated_selector, &updated_regex)?;
             let value = parse_text(&element, &price_selector, "price")?;
-            let captures = price_regex
-                .captures(&value)
-                .ok_or_else(|| ParseError::InvalidPrice { value: value.clone() })?;
+            let captures =
+                price_regex
+                    .captures(&value)
+                    .ok_or_else(|| ParseError::InvalidPrice {
+                        value: value.clone(),
+                    })?;
             let parse_part = |name: &str| {
-                captures.name(name).and_then(|value| value.as_str().parse::<u8>().ok())
+                captures
+                    .name(name)
+                    .and_then(|value| value.as_str().parse::<u8>().ok())
             };
-            let eur = parse_part("eur").ok_or_else(|| ParseError::InvalidPrice { value: value.clone() })?;
-            let cent = parse_part("cent").ok_or_else(|| ParseError::InvalidPrice { value: value.clone() })?;
+            let eur = parse_part("eur").ok_or_else(|| ParseError::InvalidPrice {
+                value: value.clone(),
+            })?;
+            let cent = parse_part("cent").ok_or_else(|| ParseError::InvalidPrice {
+                value: value.clone(),
+            })?;
 
             Ok(StationPriceChange {
                 station: Station { name, addr },
-                price_change: PriceChange { price: [eur, cent, 9], updated },
+                price_change: PriceChange {
+                    price: [eur, cent, 9],
+                    updated,
+                },
             })
         })();
 
@@ -184,17 +200,17 @@ fn parse_mehr_tanken(document: &Html) -> Result<ParsedPrices> {
                 debug!("skipping invalid Mehr-Tanken entry: {error}");
             }
         }
-
     }
 
     if stations.is_empty() {
         return Err(ParseError::MissingPriceList);
     }
 
-    Ok(ParsedPrices { stations, rejected_entries })
+    Ok(ParsedPrices {
+        stations,
+        rejected_entries,
+    })
 }
-
-
 
 fn selector(value: &'static str) -> Result<Selector> {
     Selector::parse(value).map_err(|error| ParseError::InvalidSelector {
@@ -218,8 +234,11 @@ fn parse_text(
     Ok(text)
 }
 
-fn parse_updated(element: &ElementRef<'_>, selector: &Selector, regex: &Regex) -> Result<DateTime<Local>> {
-
+fn parse_updated(
+    element: &ElementRef<'_>,
+    selector: &Selector,
+    regex: &Regex,
+) -> Result<DateTime<Local>> {
     let value = parse_text(element, selector, "timestamp")?;
     let captures = regex
         .captures(&value)
@@ -261,7 +280,6 @@ fn parse_updated(element: &ElementRef<'_>, selector: &Selector, regex: &Regex) -
 }
 
 fn parse_price(element: &ElementRef<'_>, selector: &Selector, regex: &Regex) -> Result<[u8; 3]> {
-
     let value = parse_text(element, selector, "price")?;
     let captures = regex
         .captures(&value)

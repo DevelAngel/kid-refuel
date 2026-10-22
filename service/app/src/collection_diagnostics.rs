@@ -27,7 +27,10 @@ mod status_code_serde {
     where
         S: Serializer,
     {
-        status.as_ref().map(StatusCode::as_u16).serialize(serializer)
+        status
+            .as_ref()
+            .map(StatusCode::as_u16)
+            .serialize(serializer)
     }
 
     pub fn deserialize<'de, D>(deserializer: D) -> Result<Option<StatusCode>, D::Error>

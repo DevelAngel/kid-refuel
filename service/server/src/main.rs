@@ -15,14 +15,14 @@ use refuel_app::prelude::{App, CollectionDiagnostic, record_collection_diagnosti
 use refuel_app::shell;
 use refuel_db::*;
 
-use leptos::prelude::*;
 use leptos::prelude::get_configuration;
+use leptos::prelude::*;
 use rand::prelude::*;
 
 use axum::Router;
-use clap::{Parser, Subcommand, Args};
+use clap::{Args, Parser, Subcommand};
 
-use leptos_axum::{generate_route_list, LeptosRoutes};
+use leptos_axum::{LeptosRoutes, generate_route_list};
 use std::path::PathBuf;
 use tokio::signal;
 use tokio::sync::watch;
@@ -32,7 +32,7 @@ use url::Url;
 
 use tracing_subscriber::EnvFilter;
 
-use tracing::{warn, info, debug};
+use tracing::{debug, info, warn};
 
 #[derive(Parser)]
 #[command(author, version, about, long_about = None)]
@@ -95,7 +95,10 @@ fn calc_duration<R: Rng>(rng: &mut R, interval: &Duration) -> Duration {
 }
 
 #[tracing::instrument(skip(url))]
-async fn cmd_download(url: &Url, filename: &Option<PathBuf>) -> Result<(), Box<dyn std::error::Error>> {
+async fn cmd_download(
+    url: &Url,
+    filename: &Option<PathBuf>,
+) -> Result<(), Box<dyn std::error::Error>> {
     let document = download(url).await?;
     if let Some(filename) = filename.as_ref() {
         save_file(&document, filename).await?;
@@ -106,7 +109,11 @@ async fn cmd_download(url: &Url, filename: &Option<PathBuf>) -> Result<(), Box<d
 }
 
 #[tracing::instrument(skip(url))]
-async fn cmd_run_single(url: &Url, downloaded: &Option<PathBuf>, dry_run: bool) -> Result<(), Box<dyn std::error::Error>> {
+async fn cmd_run_single(
+    url: &Url,
+    downloaded: &Option<PathBuf>,
+    dry_run: bool,
+) -> Result<(), Box<dyn std::error::Error>> {
     let started_at = chrono::Local::now().to_rfc3339();
     let started = std::time::Instant::now();
     let (document, body, http_status, http_duration) = if let Some(downloaded) = downloaded {
@@ -115,7 +122,12 @@ async fn cmd_run_single(url: &Url, downloaded: &Option<PathBuf>, dry_run: bool) 
         (document, body, None, None)
     } else {
         match download_with_details(url).await {
-            Ok(page) => (page.document, page.body, Some(page.status), Some(page.duration)),
+            Ok(page) => (
+                page.document,
+                page.body,
+                Some(page.status),
+                Some(page.duration),
+            ),
             Err(error) => {
                 record_collection_diagnostic(CollectionDiagnostic {
                     started_at,
@@ -204,9 +216,6 @@ async fn cmd_run_single(url: &Url, downloaded: &Option<PathBuf>, dry_run: bool) 
         }
     }
 
-
-
-
     record_collection_diagnostic(CollectionDiagnostic {
         started_at,
         source_url: url.clone(),
@@ -219,7 +228,8 @@ async fn cmd_run_single(url: &Url, downloaded: &Option<PathBuf>, dry_run: bool) 
             "partial_success"
         } else {
             "success"
-        }.to_owned(),
+        }
+        .to_owned(),
         prices_found: fetched,
         rejected_entries,
         error: if fetched == 0 {
@@ -232,7 +242,6 @@ async fn cmd_run_single(url: &Url, downloaded: &Option<PathBuf>, dry_run: bool) 
         response_excerpt: (fetched == 0 || rejected_entries > 0)
             .then(|| CollectionDiagnostic::response_excerpt(&body))
             .flatten(),
-
     });
 
     Ok(())
@@ -250,7 +259,6 @@ async fn cmd_run_loop(url: &Url, dry_run: bool) -> Result<(), Box<dyn std::error
             Err(error) => tracing::error!("scheduled collection failed; continuing: {error}"),
         }
         first_run = false;
-
 
         let sleep_time = calc_duration(&mut rng, &interval); // 50min .. 70min
         info!("sleep for {:.2} min..", sleep_time.as_secs_f32() / 60.0);
@@ -271,7 +279,6 @@ async fn cmd_run_loop(url: &Url, dry_run: bool) -> Result<(), Box<dyn std::error
     Ok(())
 }
 
-
 fn app() -> impl IntoView {
     view! { <App /> }
 }
@@ -287,9 +294,15 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
     let cli = Cli::parse();
     if let Some(command) = &cli.command {
         match command {
-            Commands::Download { common, out } => { cmd_download(&common.url, out).await? }
-            Commands::RunSingle { common, downloaded, dry_run } => { cmd_run_single(&common.url, downloaded, dry_run.to_owned()).await? }
-            Commands::Run { common, dry_run } => { cmd_run_loop(&common.url, dry_run.to_owned()).await? }
+            Commands::Download { common, out } => cmd_download(&common.url, out).await?,
+            Commands::RunSingle {
+                common,
+                downloaded,
+                dry_run,
+            } => cmd_run_single(&common.url, downloaded, dry_run.to_owned()).await?,
+            Commands::Run { common, dry_run } => {
+                cmd_run_loop(&common.url, dry_run.to_owned()).await?
+            }
         }
     } else {
         let conf = get_configuration(None)?;
@@ -299,7 +312,9 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
         let shell_options = leptos_options.clone();
 
         let app = Router::new()
-            .leptos_routes(&leptos_options, routes, move || shell(shell_options.clone()))
+            .leptos_routes(&leptos_options, routes, move || {
+                shell(shell_options.clone())
+            })
             .fallback(leptos_axum::file_and_error_handler(shell))
             .layer(TraceLayer::new_for_http())
             .with_state(leptos_options);
@@ -324,7 +339,6 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
             tracing::error!("initial collection failed; web server remains available: {error}");
         }
 
-
         let url = cli.common.url.clone();
         let collector = collection::run_schedule(
             move || {
@@ -336,7 +350,6 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
             Duration::from_secs(10 * 60),
         );
         tokio::pin!(collector);
-
 
         tokio::select! {
             result = signal::ctrl_c() => {

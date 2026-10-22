@@ -47,7 +47,11 @@ pub fn render_home() -> Result<String, askama::Error> {
             [1, 77, 9],
         ),
         RefuelStationData::new("MySHELL", "Bundesallee 200, 10717 Berlin", [1, 82, 9]),
-        RefuelStationData::new("MyJET", "Storkower Straße 126-130, 10407 Berlin", [1, 76, 9]),
+        RefuelStationData::new(
+            "MyJET",
+            "Storkower Straße 126-130, 10407 Berlin",
+            [1, 76, 9],
+        ),
     ];
 
     HomeTemplate {

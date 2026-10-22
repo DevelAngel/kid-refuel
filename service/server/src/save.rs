@@ -1,7 +1,7 @@
 use scraper::Html;
 
-use std::io::{self, Write};
 use std::fs::File;
+use std::io::{self, Write};
 use std::path::PathBuf;
 
 use tracing::info;
