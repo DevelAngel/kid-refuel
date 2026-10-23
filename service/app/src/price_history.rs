@@ -1,4 +1,5 @@
 use crate::fuel_price::FuelPrice;
+use crate::price_list::LocalDateTime;
 use crate::types::{Station, StationPriceChange};
 
 use chrono::prelude::*;
@@ -147,13 +148,7 @@ pub fn StationPriceHistory() -> impl IntoView {
                                                             <FuelPrice price=item.price />
                                                         </td>
                                                         <td class="border-t border-slate-800 px-5 py-4 whitespace-nowrap text-slate-400">
-                                                            <div>
-                                                                {item
-                                                                    .updated
-                                                                    .with_timezone(&Local)
-                                                                    .format("%Y-%m-%d %H:%M")
-                                                                    .to_string()}
-                                                            </div>
+                                                            <LocalDateTime timestamp=item.updated format="%Y-%m-%d %H:%M" />
                                                         </td>
                                                     </tr>
                                                 }
@@ -195,6 +190,17 @@ fn PriceChart(data: Vec<StationPriceChange>) -> impl IntoView {
     points.sort_by_key(|point| point.timestamp);
     let has_data = !points.is_empty();
 
+    let hydrated = RwSignal::new(false);
+    Effect::new(move |_| hydrated.set(true));
+    let time_labels = TickLabels::timestamps().with_format(move |value, formatter| {
+        if hydrated.get() {
+            value.with_timezone(&Local).format("%m-%d %H:%M").to_string()
+        } else {
+            formatter.format(value)
+        }
+    });
+    let mut tooltip = Tooltip::left_cursor();
+    tooltip.x_ticks = time_labels.clone();
     let data = Signal::derive(move || points.clone());
     view! {
         <section class="price-history-chart rounded-xl border border-slate-800 bg-slate-900 p-4 shadow-sm">
@@ -206,7 +212,7 @@ fn PriceChart(data: Vec<StationPriceChange>) -> impl IntoView {
                     <div class="w-full overflow-x-auto">
                         <Chart
                             aspect_ratio=AspectRatio::from_outer_ratio(900.0, 360.0)
-                            bottom=TickLabels::timestamps()
+                            bottom=time_labels
                             left=TickLabels::aligned_floats()
                             inner=[
                                 AxisMarker::left_edge().into_inner(),
@@ -214,7 +220,7 @@ fn PriceChart(data: Vec<StationPriceChange>) -> impl IntoView {
                                 XGridLine::default().into_inner(),
                                 YGridLine::default().into_inner(),
                             ]
-                            tooltip=Tooltip::left_cursor()
+                            tooltip=tooltip
                             series=Series::new(|point: &PricePoint| point.timestamp)
                                 .line(Line::new(|point: &PricePoint| point.price).with_name("Price (EUR/L)").with_interpolation(Step::Horizontal))
                             data=data

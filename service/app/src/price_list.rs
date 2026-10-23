@@ -4,12 +4,31 @@ use crate::types::StationPriceChange;
 use chrono::prelude::*;
 use leptos::prelude::*;
 
+
+#[component]
+pub(crate) fn LocalDateTime(timestamp: DateTime<Utc>, format: &'static str) -> impl IntoView {
+    let hydrated = RwSignal::new(false);
+    Effect::new(move |_| hydrated.set(true));
+
+    view! {
+        <time datetime=timestamp.to_rfc3339()>
+            {move || {
+                if hydrated.get() {
+                    timestamp.with_timezone(&Local).format(format).to_string()
+                } else {
+                    timestamp.format(format).to_string()
+                }
+            }}
+        </time>
+    }
+}
+
 #[component]
 pub(crate) fn PriceListItem(item: StationPriceChange) -> impl IntoView {
     let name = item.name;
+    let updated = item.updated;
     let addr = item.addr;
     let price = item.price;
-    let updated = item.updated.with_timezone(&Local);
 
     view! {
         <article class="flex min-w-0 flex-col gap-4 rounded-xl border border-slate-800 bg-slate-900 p-5 shadow-sm transition hover:border-slate-700 hover:bg-slate-900/80">
@@ -25,8 +44,8 @@ pub(crate) fn PriceListItem(item: StationPriceChange) -> impl IntoView {
                 {addr}
             </address>
             <div class="flex flex-wrap items-center justify-between gap-2 border-t border-slate-800 pt-3 text-xs font-medium text-slate-500">
-                <span>{updated.format("%Y-%m-%d").to_string()}</span>
-                <span>{updated.format("%H:%M").to_string()}</span>
+                <span><LocalDateTime timestamp=updated format="%Y-%m-%d" /></span>
+                <span><LocalDateTime timestamp=updated format="%H:%M" /></span>
             </div>
         </article>
     }
