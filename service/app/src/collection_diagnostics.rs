@@ -1,7 +1,6 @@
 use leptos::prelude::*;
 use serde::{Deserialize, Serialize};
 
-pub const MAX_COLLECTION_RUNS: usize = 20;
 pub const MAX_RESPONSE_EXCERPT_BYTES: usize = 16 * 1024;
 
 #[derive(Clone, Debug, Deserialize, Serialize)]
@@ -61,9 +60,10 @@ impl CollectionDiagnostic {
 
 #[cfg(feature = "ssr")]
 mod server {
-    use super::{CollectionDiagnostic, MAX_COLLECTION_RUNS};
+    use super::CollectionDiagnostic;
     use std::sync::{Mutex, OnceLock};
 
+    pub const MAX_COLLECTION_RUNS: usize = 20;
     static COLLECTION_HISTORY: OnceLock<Mutex<Vec<CollectionDiagnostic>>> = OnceLock::new();
 
     fn history() -> &'static Mutex<Vec<CollectionDiagnostic>> {
