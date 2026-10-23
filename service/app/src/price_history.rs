@@ -194,7 +194,7 @@ fn PriceChart(data: Vec<StationPriceChange>) -> impl IntoView {
     Effect::new(move |_| hydrated.set(true));
     let time_labels = TickLabels::timestamps().with_format(move |value, formatter| {
         if hydrated.get() {
-            value.with_timezone(&Local).format("%m-%d %H:%M").to_string()
+            value.with_timezone(&Local).format("%a %H:%M").to_string()
         } else {
             formatter.format(value)
         }
