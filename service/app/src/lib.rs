@@ -7,6 +7,7 @@ mod collection_diagnostics;
 mod current_prices;
 mod fuel_price;
 mod price_history;
+mod price_chart;
 mod price_list;
 mod types;
 

@@ -29,6 +29,7 @@ impl From<DBStation> for Station {
 #[derive(Serialize, Deserialize, Debug, Clone)]
 pub struct StationPriceChange {
     pub name: String,
+    pub station_id: i32,
     pub addr: String,
     pub price: [u8; 3],
     pub updated: DateTime<Utc>,
@@ -38,6 +39,7 @@ pub struct StationPriceChange {
 impl From<DBStationPriceChange> for StationPriceChange {
     fn from(src: DBStationPriceChange) -> Self {
         Self {
+            station_id: src.station_id,
             name: src.name,
             addr: src.addr,
             price: src.price,

@@ -1,12 +1,11 @@
 use crate::fuel_price::FuelPrice;
 use crate::price_list::LocalDateTime;
 use crate::types::{Station, StationPriceChange};
+use crate::price_chart::PriceChart;
 
-use chrono::prelude::*;
 use leptos::prelude::*;
 use leptos_router::components::{A, Outlet};
 use leptos_router::hooks::use_params_map;
-use leptos_chartistry::{AspectRatio, AxisMarker, Chart, IntoInner, Line, Series, Step, TickLabels, Tooltip, XGridLine, YGridLine};
 
 #[component]
 pub fn PriceHistory() -> impl IntoView {
@@ -104,7 +103,7 @@ pub fn StationPriceHistory() -> impl IntoView {
     view! {
         <Suspense fallback=move || view! { <p class="text-slate-400">"Loading price chart..."</p> }>
             {move || list.get().map(|result| match result {
-                Ok(data) => view! { <PriceChart data=data/> }.into_any(),
+                Ok(data) => view! { <PriceChart data=data title="Price trend".to_string() /> }.into_any(),
                 Err(_) => ().into_any(),
             })}
         </Suspense>
@@ -168,67 +167,6 @@ pub fn StationPriceHistory() -> impl IntoView {
                 </table>
             </Suspense>
         </div>
-    }
-}
-#[derive(Clone)]
-struct PricePoint {
-    timestamp: DateTime<Utc>,
-    price: f64,
-}
-
-#[component]
-fn PriceChart(data: Vec<StationPriceChange>) -> impl IntoView {
-    let mut points = data
-        .into_iter()
-        .map(|item| PricePoint {
-            timestamp: item.updated,
-            price: f64::from(item.price[0])
-                + f64::from(item.price[1]) / 100.0
-                + f64::from(item.price[2]) / 1000.0,
-        })
-        .collect::<Vec<_>>();
-    points.sort_by_key(|point| point.timestamp);
-    let has_data = !points.is_empty();
-
-    let hydrated = RwSignal::new(false);
-    Effect::new(move |_| hydrated.set(true));
-    let time_labels = TickLabels::timestamps().with_format(move |value, formatter| {
-        if hydrated.get() {
-            value.with_timezone(&Local).format("%a %H:%M").to_string()
-        } else {
-            formatter.format(value)
-        }
-    });
-    let mut tooltip = Tooltip::left_cursor();
-    tooltip.x_ticks = time_labels.clone();
-    let data = Signal::derive(move || points.clone());
-    view! {
-        <section class="price-history-chart rounded-xl border border-slate-800 bg-slate-900 p-4 shadow-sm">
-            <h2 class="mb-4 text-lg font-semibold text-white">"Price trend"</h2>
-            {if !has_data {
-                view! { <p class="text-sm text-slate-400">"No price history available."</p> }.into_any()
-            } else {
-                view! {
-                    <div class="w-full overflow-x-auto">
-                        <Chart
-                            aspect_ratio=AspectRatio::from_outer_ratio(900.0, 360.0)
-                            bottom=time_labels
-                            left=TickLabels::aligned_floats()
-                            inner=[
-                                AxisMarker::left_edge().into_inner(),
-                                AxisMarker::bottom_edge().into_inner(),
-                                XGridLine::default().into_inner(),
-                                YGridLine::default().into_inner(),
-                            ]
-                            tooltip=tooltip
-                            series=Series::new(|point: &PricePoint| point.timestamp)
-                                .line(Line::new(|point: &PricePoint| point.price).with_name("Price (EUR/L)").with_interpolation(Step::Horizontal))
-                            data=data
-                        />
-                    </div>
-                }.into_any()
-            }}
-        </section>
     }
 }
 
