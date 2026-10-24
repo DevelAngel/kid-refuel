@@ -12,7 +12,7 @@
       <th>updated</th>
     </tr>
     {% for station in price_list -%}
-    <tr class="PriceList__item"><!--row-->
+    <tr class="PriceList__item" data-latitude="{{ station.latitude }}" data-longitude="{{ station.longitude }}"><!--row-->
       <td>
         <span class="PriceList__itemPrice"><!--price-->
           {% let p1 = station.price[0] -%}
