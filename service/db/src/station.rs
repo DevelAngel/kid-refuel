@@ -10,6 +10,8 @@ pub struct Station {
     pub id: Option<i32>,
     pub name: String,
     pub addr: String,
+    pub latitude: Option<f64>,
+    pub longitude: Option<f64>,
 }
 
 impl Station {
@@ -18,7 +20,7 @@ impl Station {
             AnyConnection::Sqlite(conn) => {
                 use crate::schema::stations::dsl::*;
                 Ok(stations
-                    .select((id, name, addr))
+                    .select((id, name, addr, latitude, longitude))
                     .order_by(name.asc())
                     .then_order_by(addr.asc())
                     .load::<Self>(conn)?)
@@ -26,6 +28,31 @@ impl Station {
         }
     }
 }
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub struct CoordinateCoverage {
+    pub total: i64,
+    pub complete: i64,
+}
+
+impl CoordinateCoverage {
+    pub fn load(conn: &mut AnyConnection) -> Result<Self, DatabaseError> {
+        match conn {
+            AnyConnection::Sqlite(conn) => {
+                use crate::schema::stations::dsl::*;
+
+                let total = stations.count().get_result(conn)?;
+                let complete = stations
+                    .filter(latitude.is_not_null().and(longitude.is_not_null()))
+                    .count()
+                    .get_result(conn)?;
+
+                Ok(Self { total, complete })
+            }
+        }
+    }
+}
+
 
 #[derive(Insertable)]
 #[diesel(table_name = stations)]

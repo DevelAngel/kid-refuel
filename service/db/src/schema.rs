@@ -14,6 +14,8 @@ diesel::table! {
         id -> Nullable<Integer>,
         name -> Text,
         addr -> Text,
+        latitude -> Nullable<Double>,
+        longitude -> Nullable<Double>,
     }
 }
 

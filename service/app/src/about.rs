@@ -4,6 +4,7 @@ use leptos::prelude::*;
 #[component]
 pub fn About() -> impl IntoView {
     let diagnostics = Resource::new(|| (), |_| async move { get_collection_diagnostics().await });
+    let coordinate_coverage = Resource::new(|| (), |_| async move { get_station_coordinate_coverage().await });
 
     view! {
         <section class="mx-auto max-w-3xl space-y-6">
@@ -24,6 +25,35 @@ pub fn About() -> impl IntoView {
                     "Use the current overview to compare the latest observations, or explore station history to see how prices have changed."
                 </p>
             </div>
+            <section class="space-y-3">
+                <h2 class="text-2xl font-bold text-white">"Station coordinate coverage"</h2>
+                <Suspense fallback=move || view! { <p class="text-slate-400">"Loading station coordinates..."</p> }>
+                    {move || {
+                        coordinate_coverage.get().map(|result| match result {
+                            Ok((0, _complete)) => view! {
+                                <p class="rounded-xl border border-slate-800 bg-slate-900 p-5 text-slate-400">
+                                    "No stations are available yet. Coordinate coverage cannot be assessed."
+                                </p>
+                            }.into_any(),
+                            Ok((total, complete)) if total == complete => view! {
+                                <p class="rounded-xl border border-emerald-900 bg-emerald-950/30 p-5 text-emerald-200">
+                                    {format!("All {total} stations have coordinates.")}
+                                </p>
+                            }.into_any(),
+                            Ok((total, complete)) => view! {
+                                <p class="rounded-xl border border-amber-900 bg-amber-950/30 p-5 text-amber-200">
+                                    {format!("{complete} of {total} stations have coordinates. Some stations are missing coordinates.")}
+                                </p>
+                            }.into_any(),
+                            Err(error) => view! {
+                                <p class="rounded-xl border border-red-900 bg-red-950/50 p-5 text-red-200">
+                                    {format!("Failed to load station coordinate coverage: {error}")}
+                                </p>
+                            }.into_any(),
+                        })
+                    }}
+                </Suspense>
+            </section>
             <section class="space-y-4">
                 <header class="space-y-1">
                     <h2 class="text-2xl font-bold text-white">"Price collection diagnostics"</h2>
@@ -158,4 +188,17 @@ pub fn About() -> impl IntoView {
             </section>
         </section>
     }
+}
+
+#[server(endpoint = "get_station_coordinate_coverage")]
+pub async fn get_station_coordinate_coverage() -> Result<(i64, i64), ServerFnError> {
+    use refuel_db::establish_connection_sqlite;
+    use refuel_db::prelude::CoordinateCoverage as DBCoordinateCoverage;
+
+    let mut conn = establish_connection_sqlite()
+        .map_err(|error| ServerFnError::new(error.to_string()))?;
+    let coverage = DBCoordinateCoverage::load(&mut conn)
+        .map_err(|error| ServerFnError::new(error.to_string()))?;
+
+    Ok((coverage.total, coverage.complete))
 }

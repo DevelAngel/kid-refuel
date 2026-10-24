@@ -1,0 +1,2 @@
+ALTER TABLE stations ADD COLUMN latitude DOUBLE;
+ALTER TABLE stations ADD COLUMN longitude DOUBLE;
