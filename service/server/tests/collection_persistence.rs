@@ -5,7 +5,7 @@ use refuel_app::prelude::MAX_RESPONSE_EXCERPT_BYTES;
 use refuel_app::prelude::{
     CollectionDiagnostic, get_collection_diagnostics, record_collection_diagnostic,
 };
-use refuel_db::prelude::{AnyConnection, StationPriceChange};
+use refuel_db::prelude::{AnyConnection, Station, StationPriceChange};
 use std::path::PathBuf;
 use std::process::Command;
 
@@ -41,6 +41,20 @@ impl CollectionWorld {
         self.html_path
             .as_ref()
             .expect("HTML path should be initialized")
+    }
+
+    fn connection(&self) -> AnyConnection {
+        let connection = SqliteConnection::establish(&self.database_path().to_string_lossy())
+            .expect("persisted database should be queryable");
+        AnyConnection::Sqlite(connection)
+    }
+
+    fn stations(&self) -> Vec<Station> {
+        Station::load_all(&mut self.connection()).expect("persisted stations should be queryable")
+    }
+
+    fn has_coordinates(station: &Station) -> bool {
+        station.latitude.is_some() && station.longitude.is_some()
     }
 }
 
@@ -78,6 +92,11 @@ async fn database_is_initialized(world: &mut CollectionWorld) {
             "../../db/migrations/2026-10-16-000000_harden_persistence/up.sql"
         ))
         .expect("persistence constraints should be applied");
+    connection
+        .batch_execute(include_str!(
+            "../../db/migrations/2026-10-23-000000_add_station_coordinates/up.sql"
+        ))
+        .expect("station coordinates should be added");
 }
 
 #[when("the real collector processes the simulator HTML")]
@@ -148,6 +167,81 @@ async fn jet_has_expected_address_and_price(world: &mut CollectionWorld) {
             && station.addr == "Peschelstr. 36, 01139 Dresden"
             && station.price == [2, 12, 9]
     }));
+}
+
+#[given("the page without station coordinates is the input")]
+async fn page_without_coordinates_is_input(world: &mut CollectionWorld) {
+    let fixture = concat!(
+        env!("CARGO_MANIFEST_DIR"),
+        "/tests/fixtures/no_coordinates.html"
+    );
+    std::fs::copy(fixture, world.html_path()).expect("fixture HTML should be copied");
+}
+
+#[given("MyESSO is stored with other coordinates")]
+async fn my_esso_is_stored_with_other_coordinates(world: &mut CollectionWorld) {
+    let mut connection = SqliteConnection::establish(&world.database_path().to_string_lossy())
+        .expect("test database should be reachable");
+    diesel::sql_query(
+        "INSERT INTO stations (name, addr, latitude, longitude) \
+         VALUES ('MyESSO', 'Marienfelder Chaussee 171, 12349 Berlin', 1.5, 2.5)",
+    )
+    .execute(&mut connection)
+    .expect("station with coordinates should be stored");
+}
+
+#[then("all eight stations have coordinates")]
+async fn all_eight_stations_have_coordinates(world: &mut CollectionWorld) {
+    let stations = world.stations();
+    assert_eq!(stations.len(), 8);
+    assert!(stations.iter().all(CollectionWorld::has_coordinates));
+}
+
+#[then("all stored stations have coordinates")]
+async fn all_stored_stations_have_coordinates(world: &mut CollectionWorld) {
+    let stations = world.stations();
+    assert!(!stations.is_empty());
+    assert!(stations.iter().all(CollectionWorld::has_coordinates));
+}
+
+#[then("MyESSO keeps its stored coordinates")]
+async fn my_esso_keeps_its_stored_coordinates(world: &mut CollectionWorld) {
+    let stations = world.stations();
+    assert!(stations.iter().any(|station| {
+        station.name == "MyESSO"
+            && station.latitude == Some(1.5)
+            && station.longitude == Some(2.5)
+    }));
+}
+
+#[then("the other seven stations have coordinates")]
+async fn other_seven_stations_have_coordinates(world: &mut CollectionWorld) {
+    let stations = world.stations();
+    let others: Vec<_> = stations
+        .iter()
+        .filter(|station| station.name != "MyESSO")
+        .collect();
+    assert_eq!(others.len(), 7);
+    assert!(others.into_iter().all(CollectionWorld::has_coordinates));
+}
+
+#[then("one current station price is queryable")]
+async fn one_current_station_price_is_queryable(world: &mut CollectionWorld) {
+    let mut connection = world.connection();
+    let current = StationPriceChange::load_current(&mut connection)
+        .expect("persisted current prices should be queryable");
+    assert_eq!(current.len(), 1);
+}
+
+#[then("no station has coordinates")]
+async fn no_station_has_coordinates(world: &mut CollectionWorld) {
+    let stations = world.stations();
+    assert!(!stations.is_empty());
+    assert!(
+        stations
+            .iter()
+            .all(|station| station.latitude.is_none() && station.longitude.is_none())
+    );
 }
 
 #[when("twenty-one collection diagnostics are recorded")]
