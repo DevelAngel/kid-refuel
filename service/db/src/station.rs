@@ -27,6 +27,34 @@ impl Station {
             }
         }
     }
+
+    pub fn fill_missing_coordinates(
+        station_id_value: i32,
+        new_latitude: f64,
+        new_longitude: f64,
+        conn: &mut AnyConnection,
+    ) -> Result<(), DatabaseError> {
+        match conn {
+            AnyConnection::Sqlite(conn) => {
+                use crate::schema::stations::dsl::*;
+                diesel::update(
+                    stations
+                        .filter(id.eq(station_id_value))
+                        .filter(latitude.is_null()),
+                )
+                .set(latitude.eq(new_latitude))
+                .execute(conn)?;
+                diesel::update(
+                    stations
+                        .filter(id.eq(station_id_value))
+                        .filter(longitude.is_null()),
+                )
+                .set(longitude.eq(new_longitude))
+                .execute(conn)?;
+                Ok(())
+            }
+        }
+    }
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
