@@ -7,15 +7,19 @@ struct RefuelStationData {
     addr: String,
     updated: DateTime<Local>,
     price: [u8; 3],
+    latitude: f64,
+    longitude: f64,
 }
 
 impl RefuelStationData {
-    fn new(name: &str, addr: &str, price: [u8; 3]) -> Self {
+    fn new(name: &str, addr: &str, price: [u8; 3], (latitude, longitude): (f64, f64)) -> Self {
         Self {
             name: name.to_owned(),
             addr: addr.to_owned(),
             updated: Local::now(),
             price,
+            latitude,
+            longitude,
         }
     }
 }
@@ -32,25 +36,49 @@ pub fn render_home() -> Result<String, askama::Error> {
             "MyESSO",
             "Marienfelder Chaussee 171, 12349 Berlin",
             [1, 78, 9],
+            (52.41, 13.37),
         ),
-        RefuelStationData::new("MyJET", "Rhinstr. 240, 13055 Berlin", [1, 79, 8]),
+        RefuelStationData::new(
+            "MyJET",
+            "Rhinstr. 240, 13055 Berlin",
+            [1, 79, 8],
+            (52.53, 13.51),
+        ),
         RefuelStationData::new(
             "MyTotalEnergies",
             "Landsberger Allee 376, 12681 Berlin",
             [1, 81, 9],
+            (52.55, 13.55),
         ),
-        RefuelStationData::new("MyAGIP ENI", "Dietzgenstr. 127, 13158 Berlin", [1, 80, 9]),
-        RefuelStationData::new("MyHEM", "Wittestr. 16, 13509 Berlin", [1, 76, 9]),
+        RefuelStationData::new(
+            "MyAGIP ENI",
+            "Dietzgenstr. 127, 13158 Berlin",
+            [1, 80, 9],
+            (52.6, 13.4),
+        ),
+        RefuelStationData::new(
+            "MyHEM",
+            "Wittestr. 16, 13509 Berlin",
+            [1, 76, 9],
+            (52.57, 13.29),
+        ),
         RefuelStationData::new(
             "MySTAR",
             "Prenzlauer Promenade 72-73, 13089 Berlin",
             [1, 77, 9],
+            (52.58, 13.43),
         ),
-        RefuelStationData::new("MySHELL", "Bundesallee 200, 10717 Berlin", [1, 82, 9]),
+        RefuelStationData::new(
+            "MySHELL",
+            "Bundesallee 200, 10717 Berlin",
+            [1, 82, 9],
+            (52.48, 13.32),
+        ),
         RefuelStationData::new(
             "MyJET",
             "Storkower Straße 126-130, 10407 Berlin",
             [1, 76, 9],
+            (52.53, 13.46),
         ),
     ];
 
