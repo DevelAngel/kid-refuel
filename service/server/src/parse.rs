@@ -4,7 +4,8 @@ use refuel_db::prelude::*;
 use chrono::{DateTime, Datelike, Local, TimeZone};
 use regex::Regex;
 use scraper::{ElementRef, Html, Selector};
-use std::collections::VecDeque;
+use serde_json::Value;
+use std::collections::{HashMap, VecDeque};
 use tracing::debug;
 
 type Result<T> = std::result::Result<T, ParseError>;
@@ -17,6 +18,14 @@ pub(crate) struct ParsedPrices {
 pub struct Station {
     pub name: String,
     pub addr: String,
+    pub coordinates: Option<(f64, f64)>,
+}
+
+impl Station {
+    fn valid_coordinates(latitude: f64, longitude: f64) -> Option<(f64, f64)> {
+        ((-90.0..=90.0).contains(&latitude) && (-180.0..=180.0).contains(&longitude))
+            .then_some((latitude, longitude))
+    }
 }
 
 pub struct PriceChange {
@@ -54,6 +63,11 @@ impl StationPriceChange {
             addr: &self.station.addr,
         }
         .save(conn)?;
+        if let Some((latitude, longitude)) = self.station.coordinates {
+            refuel_db::prelude::Station::fill_missing_coordinates(
+                station_id, latitude, longitude, conn,
+            )?;
+        }
 
         let updated = self.price_change.updated.naive_utc();
         NewPriceChange {
@@ -109,8 +123,25 @@ pub(crate) async fn parse(document: &Html) -> Result<ParsedPrices> {
             let updated = parse_updated(&element, &updated_selector, &updated_regex)?;
             let price = parse_price(&element, &price_selector, &price_regex)?;
 
+            let attribute = |name: &str| {
+                element
+                    .value()
+                    .attr(name)
+                    .and_then(|value| value.trim().parse::<f64>().ok())
+            };
+            let coordinates = match (attribute("data-latitude"), attribute("data-longitude")) {
+                (Some(latitude), Some(longitude)) => {
+                    Station::valid_coordinates(latitude, longitude)
+                }
+                _ => None,
+            };
+
             Ok(StationPriceChange {
-                station: Station { name, addr },
+                station: Station {
+                    name,
+                    addr,
+                    coordinates,
+                },
                 price_change: PriceChange { price, updated },
             })
         })();
@@ -151,6 +182,8 @@ fn parse_mehr_tanken(document: &Html) -> Result<ParsedPrices> {
         }
     })?;
 
+    let coordinates_by_id = mehr_tanken_coordinates(document)?;
+
     let mut rejected_entries = 0;
 
     let mut stations = VecDeque::with_capacity(20);
@@ -184,8 +217,19 @@ fn parse_mehr_tanken(document: &Html) -> Result<ParsedPrices> {
                 value: value.clone(),
             })?;
 
+            let coordinates = element
+                .value()
+                .attr("href")
+                .and_then(|href| href.trim_matches('/').rsplit('-').next())
+                .and_then(|id| coordinates_by_id.get(id))
+                .copied();
+
             Ok(StationPriceChange {
-                station: Station { name, addr },
+                station: Station {
+                    name,
+                    addr,
+                    coordinates,
+                },
                 price_change: PriceChange {
                     price: [eur, cent, 9],
                     updated,
@@ -210,6 +254,45 @@ fn parse_mehr_tanken(document: &Html) -> Result<ParsedPrices> {
         stations,
         rejected_entries,
     })
+}
+
+fn mehr_tanken_coordinates(document: &Html) -> Result<HashMap<String, (f64, f64)>> {
+    let script_selector = selector("script#__NEXT_DATA__")?;
+    let mut coordinates = HashMap::new();
+
+    if let Some(script) = document.select(&script_selector).next() {
+        let json = script.text().collect::<String>();
+        match serde_json::from_str::<Value>(&json) {
+            Ok(data) => collect_coordinates(&data, &mut coordinates),
+            Err(error) => debug!("ignoring unreadable Mehr-Tanken station data: {error}"),
+        }
+    }
+
+    Ok(coordinates)
+}
+
+fn collect_coordinates(value: &Value, coordinates: &mut HashMap<String, (f64, f64)>) {
+    match value {
+        Value::Object(object) => {
+            if let (Some(id), Some(latitude), Some(longitude)) = (
+                object.get("id").and_then(Value::as_str),
+                object.get("lat").and_then(Value::as_f64),
+                object.get("lon").and_then(Value::as_f64),
+            ) && let Some(pair) = Station::valid_coordinates(latitude, longitude)
+            {
+                coordinates.insert(id.to_owned(), pair);
+            }
+            for value in object.values() {
+                collect_coordinates(value, coordinates);
+            }
+        }
+        Value::Array(items) => {
+            for value in items {
+                collect_coordinates(value, coordinates);
+            }
+        }
+        _ => {}
+    }
 }
 
 fn selector(value: &'static str) -> Result<Selector> {
