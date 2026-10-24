@@ -19,11 +19,8 @@ fn legacy_connection() -> AnyConnection {
 fn connection() -> AnyConnection {
     let mut conn = legacy_connection();
     let AnyConnection::Sqlite(sqlite) = &mut conn;
-    sqlite
-        .batch_execute(include_str!(
-            "../migrations/2026-10-16-000000_harden_persistence/up.sql"
-        ))
-        .unwrap();
+    sqlite.batch_execute(include_str!("../migrations/2026-10-16-000000_harden_persistence/up.sql")).unwrap();
+    sqlite.batch_execute(include_str!("../migrations/2026-10-23-000000_add_station_coordinates/up.sql")).unwrap();
     conn
 }
 
@@ -141,6 +138,7 @@ fn migration_deduplicates_existing_stations_and_observations() {
             "../migrations/2026-10-16-000000_harden_persistence/up.sql"
         ))
         .unwrap();
+    sqlite.batch_execute(include_str!("../migrations/2026-10-23-000000_add_station_coordinates/up.sql")).unwrap();
 
     let stations = Station::load_all(&mut conn).unwrap();
     assert_eq!(stations.len(), 1);
@@ -148,4 +146,54 @@ fn migration_deduplicates_existing_stations_and_observations() {
     let history = StationPriceChange::load_station(station_id, &mut conn).unwrap();
     assert_eq!(history.len(), 1);
     assert_eq!(history[0].price, [1, 23, 4]);
+}
+
+#[test]
+fn coordinate_coverage_counts_only_stations_with_both_coordinates() {
+    use refuel_db::prelude::CoordinateCoverage;
+
+    let mut conn = connection();
+    let first = NewStation { name: "Alpha", addr: "1 Main Street" }
+        .save(&mut conn)
+        .unwrap();
+    NewStation { name: "Beta", addr: "2 Main Street" }
+        .save(&mut conn)
+        .unwrap();
+
+    {
+        let AnyConnection::Sqlite(sqlite) = &mut conn;
+        diesel::sql_query("UPDATE stations SET latitude = 51.0, longitude = 13.7 WHERE id = ?")
+            .bind::<diesel::sql_types::Integer, _>(first)
+            .execute(sqlite)
+            .unwrap();
+        diesel::sql_query("UPDATE stations SET latitude = 51.1 WHERE name = 'Beta'")
+            .execute(sqlite)
+            .unwrap();
+    }
+    assert_eq!(
+        CoordinateCoverage::load(&mut conn).unwrap(),
+        CoordinateCoverage { total: 2, complete: 1 }
+    );
+    {
+        let AnyConnection::Sqlite(sqlite) = &mut conn;
+        diesel::sql_query("UPDATE stations SET longitude = 13.8 WHERE name = 'Beta'")
+            .execute(sqlite)
+            .unwrap();
+    }
+
+    assert_eq!(
+        CoordinateCoverage::load(&mut conn).unwrap(),
+        CoordinateCoverage { total: 2, complete: 2 }
+    );
+}
+
+#[test]
+fn coordinate_coverage_handles_an_empty_database() {
+    use refuel_db::prelude::CoordinateCoverage;
+
+    let mut conn = connection();
+    assert_eq!(
+        CoordinateCoverage::load(&mut conn).unwrap(),
+        CoordinateCoverage { total: 0, complete: 0 }
+    );
 }
