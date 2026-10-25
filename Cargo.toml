@@ -8,6 +8,7 @@ members = [
 ]
 default-members = [
     "service/front",
+    "service/app",
     "service/db",
     "service/server",
 ]
