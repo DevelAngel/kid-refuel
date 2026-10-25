@@ -193,6 +193,7 @@ pub fn About() -> impl IntoView {
 
 #[cfg_attr(not(feature = "hydrate"), allow(dead_code))]
 #[derive(Clone)]
+#[cfg_attr(test, derive(Debug))]
 enum PositionState {
     Pending,
     Granted { latitude: f64, longitude: f64 },
@@ -235,9 +236,10 @@ fn request_position(state: RwSignal<PositionState>) {
         let _ = state.try_set(PositionState::from_error(error.code(), error.message()));
     });
 
-    if let Err(error) = geolocation
-        .get_current_position_with_error_callback(on_success.unchecked_ref(), Some(on_error.unchecked_ref()))
-    {
+    if let Err(error) = geolocation.get_current_position_with_error_callback(
+        on_success.unchecked_ref(),
+        Some(on_error.unchecked_ref()),
+    ) {
         let _ = state.try_set(PositionState::Failed(format!("{error:?}")));
     }
 }
@@ -293,12 +295,13 @@ pub async fn get_station_coordinate_coverage() -> Result<(i64, i64), ServerFnErr
 #[cfg(test)]
 mod tests {
     use super::PositionState;
+    use std::assert_matches;
 
     #[test]
     fn permission_denied_maps_to_denied() {
         let state = PositionState::from_error(1, "User denied Geolocation".to_owned());
 
-        assert!(matches!(state, PositionState::Denied));
+        assert_matches!(state, PositionState::Denied);
     }
 
     #[test]
@@ -306,7 +309,7 @@ mod tests {
         for code in [2, 3] {
             let state = PositionState::from_error(code, "reason".to_owned());
 
-            assert!(matches!(state, PositionState::Failed(reason) if reason == "reason"));
+            assert_matches!(state, PositionState::Failed(reason) if reason == "reason");
         }
     }
 }
