@@ -4,12 +4,20 @@ use crate::types::StationPriceChange;
 use chrono::prelude::*;
 use leptos::prelude::*;
 use leptos_chartistry::{
-    AspectRatio, AxisMarker, Chart, IntoInner, Legend, Line, Series, Step, TickLabels, Tooltip,
+    AspectRatio, AxisMarker, Chart, Colour, IntoInner, Line, Series, Step, TickLabels, Tooltip,
     XGridLine, YGridLine,
 };
 
 const MAX_STATIONS: usize = 6;
 const WINDOW_WEEKS: i64 = 2;
+const COLOURS: [(u8, u8, u8); 6] = [
+    (34, 211, 238),
+    (251, 191, 36),
+    (251, 113, 133),
+    (163, 230, 53),
+    (167, 139, 250),
+    (251, 146, 60),
+];
 
 #[derive(Clone, Debug, PartialEq)]
 pub(crate) struct NearbyStation {
@@ -150,7 +158,7 @@ fn ComparisonChart(comparison: Comparison) -> impl IntoView {
 
     let hydrated = RwSignal::new(false);
     Effect::new(move |_| hydrated.set(true));
-    let labels = move |format: &'static str| {
+    let tick_labels = move |format: &'static str| {
         TickLabels::timestamps().with_format(move |value, formatter| {
             if hydrated.get() {
                 value.with_timezone(&Local).format(format).to_string()
@@ -159,16 +167,21 @@ fn ComparisonChart(comparison: Comparison) -> impl IntoView {
             }
         })
     };
-    let time_labels = labels("%a %d.%m.");
+    let time_labels = tick_labels("%a %d.%m.");
     let mut tooltip = Tooltip::left_cursor();
-    tooltip.x_ticks = labels("%a %d.%m. %H:%M");
+    tooltip.x_ticks = tick_labels("%a %d.%m. %H:%M");
 
-    let series = comparison.labels.into_iter().enumerate().fold(
+    let labels = comparison.labels;
+    let colours = (0..labels.len())
+        .map(|index| COLOURS[index % COLOURS.len()])
+        .collect::<Vec<_>>();
+    let series = labels.iter().zip(&colours).enumerate().fold(
         Series::new(|row: &ChartRow| row.timestamp),
-        |series, (index, label)| {
+        |series, (index, (label, &(red, green, blue)))| {
             series.line(
                 Line::new(move |row: &ChartRow| row.prices[index])
-                    .with_name(label)
+                    .with_name(label.clone())
+                    .with_colour(Colour::from_rgb(red, green, blue))
                     .with_interpolation(Step::Horizontal),
             )
         },
@@ -182,7 +195,6 @@ fn ComparisonChart(comparison: Comparison) -> impl IntoView {
                 aspect_ratio=AspectRatio::from_outer_ratio(900.0, 600.0)
                 bottom=time_labels
                 left=TickLabels::aligned_floats()
-                right=Legend::middle()
                 inner=[
                     AxisMarker::left_edge().into_inner(),
                     AxisMarker::bottom_edge().into_inner(),
@@ -194,6 +206,23 @@ fn ComparisonChart(comparison: Comparison) -> impl IntoView {
                 data=data
             />
         </div>
+        <ul class="mt-4 flex flex-wrap gap-x-6 gap-y-2 text-sm text-slate-300">
+            {labels
+                .into_iter()
+                .zip(colours)
+                .map(|(label, (red, green, blue))| {
+                    view! {
+                        <li class="flex items-center gap-2">
+                            <span
+                                class="inline-block h-1 w-5 rounded"
+                                style=format!("background-color: rgb({red}, {green}, {blue})")
+                            ></span>
+                            {label}
+                        </li>
+                    }
+                })
+                .collect_view()}
+        </ul>
     }
     .into_any()
 }
