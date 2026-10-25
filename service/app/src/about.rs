@@ -5,6 +5,9 @@ use leptos::prelude::*;
 pub fn About() -> impl IntoView {
     let diagnostics = Resource::new(|| (), |_| async move { get_collection_diagnostics().await });
     let coordinate_coverage = Resource::new(|| (), |_| async move { get_station_coordinate_coverage().await });
+    let fallback_position = Resource::new(|| (), |_| async move {
+        crate::fallback_position::get_fallback_position().await
+    });
 
     view! {
         <section class="mx-auto max-w-3xl space-y-6">
@@ -25,6 +28,25 @@ pub fn About() -> impl IntoView {
                     "Use the current overview to compare the latest observations, or explore station history to see how prices have changed."
                 </p>
             </div>
+            <section class="space-y-3">
+                <h2 class="text-2xl font-bold text-white">"Configured fallback position"</h2>
+                <Suspense fallback=move || view! { <p class="text-slate-400">"Loading fallback position..."</p> }>
+                    {move || {
+                        fallback_position.get().map(|result| match result {
+                            Ok((latitude, longitude)) => view! {
+                                <p class="rounded-xl border border-slate-800 bg-slate-900 p-5 text-slate-200">
+                                    {format!("Latitude {latitude:.5}, longitude {longitude:.5}")}
+                                </p>
+                            }.into_any(),
+                            Err(error) => view! {
+                                <p class="rounded-xl border border-red-900 bg-red-950/50 p-5 text-red-200">
+                                    {format!("Failed to load fallback position: {error}")}
+                                </p>
+                            }.into_any(),
+                        })
+                    }}
+                </Suspense>
+            </section>
             <BrowserPosition />
             <section class="space-y-3">
                 <h2 class="text-2xl font-bold text-white">"Station coordinate coverage"</h2>

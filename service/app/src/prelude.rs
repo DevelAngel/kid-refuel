@@ -1,3 +1,6 @@
+pub use crate::fallback_position::get_fallback_position;
+#[cfg(feature = "ssr")]
+pub use crate::fallback_position::{FallbackPosition, set_fallback_position};
 pub use crate::all_prices::GetAllPrices;
 pub use crate::app::App;
 pub use crate::collection_diagnostics::MAX_RESPONSE_EXCERPT_BYTES;

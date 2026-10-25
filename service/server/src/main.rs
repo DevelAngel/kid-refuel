@@ -12,6 +12,7 @@ use crate::parse::*;
 use crate::save::*;
 
 use refuel_app::prelude::{App, CollectionDiagnostic, record_collection_diagnostic};
+use refuel_app::prelude::{FallbackPosition, set_fallback_position};
 use refuel_app::shell;
 use refuel_db::*;
 
@@ -48,8 +49,11 @@ struct Cli {
 #[derive(Args)]
 pub struct CommonArgs {
     #[arg(short, long, value_name = "URL", default_value_t = Url::parse("http://localhost:8080").unwrap())]
-    /// Url of the webapp
+    /// URL of the price source
     url: Url,
+    #[arg(long, value_name = "LATITUDE,LONGITUDE")]
+    /// Fallback position used when the browser position is unavailable
+    fallback_position: Option<FallbackPosition>,
 }
 
 #[derive(Subcommand)]
@@ -300,11 +304,19 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
                 downloaded,
                 dry_run,
             } => cmd_run_single(&common.url, downloaded, dry_run.to_owned()).await?,
+
             Commands::Run { common, dry_run } => {
                 cmd_run_loop(&common.url, dry_run.to_owned()).await?
             }
         }
     } else {
+        let fallback_position = cli.common.fallback_position.ok_or_else(|| {
+            std::io::Error::other("missing fallback position; provide --fallback-position LATITUDE,LONGITUDE")
+        })?;
+        set_fallback_position(fallback_position).map_err(|_| {
+            std::io::Error::other("fallback position was already configured")
+        })?;
+
         let conf = get_configuration(None)?;
         let leptos_options = conf.leptos_options;
         let addr = leptos_options.site_addr;
