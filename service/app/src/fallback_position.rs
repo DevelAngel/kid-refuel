@@ -1,12 +1,15 @@
 use leptos::prelude::*;
+#[cfg(feature = "ssr")]
 use std::str::FromStr;
 
+#[cfg(feature = "ssr")]
 #[derive(Clone, Copy, Debug, PartialEq)]
 pub struct FallbackPosition {
     pub latitude: f64,
     pub longitude: f64,
 }
 
+#[cfg(feature = "ssr")]
 impl FromStr for FallbackPosition {
     type Err = String;
 
@@ -52,7 +55,7 @@ pub async fn get_fallback_position() -> Result<(f64, f64), ServerFnError> {
     Err(ServerFnError::new("fallback position is unavailable"))
 }
 
-#[cfg(test)]
+#[cfg(all(test, feature = "ssr"))]
 mod tests {
     use super::FallbackPosition;
     use std::str::FromStr;
