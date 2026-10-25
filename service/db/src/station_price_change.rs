@@ -4,7 +4,7 @@ use crate::error::DatabaseError;
 use chrono::prelude::*;
 use diesel::prelude::*;
 
-const WINDOW_WEEKS: i64 = 5;
+const WINDOW_WEEKS: i64 = 2;
 
 type Row = (
     i32,
@@ -49,7 +49,7 @@ impl StationPriceChange {
         }
     }
 
-    /// Loads the changes of the given stations within the last five weeks,
+    /// Loads the changes of the given stations within the last two weeks,
     /// each station starting with the change that was valid at the window start.
     pub fn load_window(
         station_ids: &[i32],
