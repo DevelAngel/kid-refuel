@@ -4,8 +4,21 @@ use crate::error::DatabaseError;
 use chrono::prelude::*;
 use diesel::prelude::*;
 
+const WINDOW_WEEKS: i64 = 5;
+
+type Row = (
+    i32,
+    String,
+    String,
+    NaiveDateTime,
+    i32,
+    Option<f64>,
+    Option<f64>,
+);
+
 #[derive(Debug)]
 pub struct StationPriceChange {
+    pub station_id: i32,
     pub name: String,
     pub addr: String,
     pub updated: DateTime<Utc>,
@@ -36,30 +49,46 @@ impl StationPriceChange {
         }
     }
 
+    /// Loads the changes of the given stations within the last five weeks,
+    /// each station starting with the change that was valid at the window start.
+    pub fn load_window(
+        station_ids: &[i32],
+        now: DateTime<Utc>,
+        conn: &mut AnyConnection,
+    ) -> Result<Vec<Self>, DatabaseError> {
+        match conn {
+            AnyConnection::Sqlite(conn) => Self::load_window_sqlite(station_ids, now, conn),
+        }
+    }
+
+    fn from_row(
+        (station_id, name, addr, updated, price, latitude, longitude): Row,
+    ) -> Result<Self, DatabaseError> {
+        Ok(Self {
+            station_id,
+            name,
+            addr,
+            updated: Utc.from_utc_datetime(&updated),
+            price: convert_price(price)?,
+            latitude,
+            longitude,
+        })
+    }
+
     fn load_all_sqlite(conn: &mut SqliteConnection) -> Result<Vec<Self>, DatabaseError> {
         use crate::schema::price_changes::dsl::*;
         use crate::schema::stations::dsl::*;
 
-        let rows = stations
+        stations
             .inner_join(price_changes)
-            .select((name, addr, updated, price, latitude, longitude))
+            .select((station_id, name, addr, updated, price, latitude, longitude))
             .order_by(updated.desc())
             .then_order_by(price.asc())
             .then_order_by(name.asc())
             .then_order_by(addr.asc())
-            .load::<(String, String, NaiveDateTime, i32, Option<f64>, Option<f64>)>(conn)?;
-
-        rows.into_iter()
-            .map(|(station_name, station_addr, changed_at, raw_price, station_latitude, station_longitude)| {
-                Ok(Self {
-                    name: station_name,
-                    addr: station_addr,
-                    updated: Utc.from_utc_datetime(&changed_at),
-                    price: convert_price(raw_price)?,
-                    latitude: station_latitude,
-                    longitude: station_longitude,
-                })
-            })
+            .load::<Row>(conn)?
+            .into_iter()
+            .map(Self::from_row)
             .collect()
     }
 
@@ -68,7 +97,7 @@ impl StationPriceChange {
         use crate::schema::stations::dsl::*;
 
         let p2 = diesel::alias!(crate::schema::price_changes as p2);
-        let rows = stations
+        stations
             .inner_join(price_changes)
             .filter(
                 updated.nullable().eq(p2
@@ -76,22 +105,12 @@ impl StationPriceChange {
                     .select(diesel::dsl::max(p2.field(updated)))
                     .single_value()),
             )
-            .select((name, addr, updated, price, latitude, longitude))
+            .select((station_id, name, addr, updated, price, latitude, longitude))
             .order_by(name.asc())
             .then_order_by(addr.asc())
-            .load::<(String, String, NaiveDateTime, i32, Option<f64>, Option<f64>)>(conn)?;
-
-        rows.into_iter()
-            .map(|(station_name, station_addr, changed_at, raw_price, station_latitude, station_longitude)| {
-                Ok(Self {
-                    name: station_name,
-                    addr: station_addr,
-                    updated: Utc.from_utc_datetime(&changed_at),
-                    price: convert_price(raw_price)?,
-                    latitude: station_latitude,
-                    longitude: station_longitude,
-                })
-            })
+            .load::<Row>(conn)?
+            .into_iter()
+            .map(Self::from_row)
             .collect()
     }
 
@@ -102,25 +121,48 @@ impl StationPriceChange {
         use crate::schema::price_changes::dsl::*;
         use crate::schema::stations::dsl::{id as station_pk, *};
 
-        let rows = stations
+        stations
             .inner_join(price_changes)
             .filter(station_pk.eq(station_id_value))
-            .select((name, addr, updated, price, latitude, longitude))
+            .select((station_id, name, addr, updated, price, latitude, longitude))
             .order_by(updated.desc())
-            .load::<(String, String, NaiveDateTime, i32, Option<f64>, Option<f64>)>(conn)?;
-
-        rows.into_iter()
-            .map(|(station_name, station_addr, changed_at, raw_price, station_latitude, station_longitude)| {
-                Ok(Self {
-                    name: station_name,
-                    addr: station_addr,
-                    updated: Utc.from_utc_datetime(&changed_at),
-                    price: convert_price(raw_price)?,
-                    latitude: station_latitude,
-                    longitude: station_longitude,
-                })
-            })
+            .load::<Row>(conn)?
+            .into_iter()
+            .map(Self::from_row)
             .collect()
+    }
+
+    fn load_window_sqlite(
+        station_ids: &[i32],
+        now: DateTime<Utc>,
+        conn: &mut SqliteConnection,
+    ) -> Result<Vec<Self>, DatabaseError> {
+        use crate::schema::price_changes::dsl::*;
+        use crate::schema::stations::dsl::*;
+
+        let since = (now - chrono::Duration::weeks(WINDOW_WEEKS)).naive_utc();
+        let mut rows = Vec::new();
+        for &requested in station_ids {
+            let at_start = stations
+                .inner_join(price_changes)
+                .filter(station_id.eq(requested))
+                .filter(updated.lt(since))
+                .select((station_id, name, addr, updated, price, latitude, longitude))
+                .order_by(updated.desc())
+                .first::<Row>(conn)
+                .optional()?;
+            let within = stations
+                .inner_join(price_changes)
+                .filter(station_id.eq(requested))
+                .filter(updated.ge(since))
+                .select((station_id, name, addr, updated, price, latitude, longitude))
+                .order_by(updated.asc())
+                .load::<Row>(conn)?;
+            rows.extend(at_start);
+            rows.extend(within);
+        }
+
+        rows.into_iter().map(Self::from_row).collect()
     }
 }
 
