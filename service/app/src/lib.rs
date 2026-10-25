@@ -1,6 +1,7 @@
 pub mod prelude;
 
 mod about;
+mod fallback_position;
 mod all_prices;
 mod app;
 mod collection_diagnostics;
