@@ -10,6 +10,8 @@ pub struct StationPriceChange {
     pub addr: String,
     pub updated: DateTime<Utc>,
     pub price: [u8; 3],
+    pub latitude: Option<f64>,
+    pub longitude: Option<f64>,
 }
 
 impl StationPriceChange {
@@ -37,22 +39,25 @@ impl StationPriceChange {
     fn load_all_sqlite(conn: &mut SqliteConnection) -> Result<Vec<Self>, DatabaseError> {
         use crate::schema::price_changes::dsl::*;
         use crate::schema::stations::dsl::*;
+
         let rows = stations
             .inner_join(price_changes)
-            .select((name, addr, updated, price))
+            .select((name, addr, updated, price, latitude, longitude))
             .order_by(updated.desc())
             .then_order_by(price.asc())
             .then_order_by(name.asc())
             .then_order_by(addr.asc())
-            .load::<(String, String, NaiveDateTime, i32)>(conn)?;
+            .load::<(String, String, NaiveDateTime, i32, Option<f64>, Option<f64>)>(conn)?;
 
         rows.into_iter()
-            .map(|(station_name, station_addr, changed_at, raw_price)| {
+            .map(|(station_name, station_addr, changed_at, raw_price, station_latitude, station_longitude)| {
                 Ok(Self {
                     name: station_name,
                     addr: station_addr,
                     updated: Utc.from_utc_datetime(&changed_at),
                     price: convert_price(raw_price)?,
+                    latitude: station_latitude,
+                    longitude: station_longitude,
                 })
             })
             .collect()
@@ -61,6 +66,7 @@ impl StationPriceChange {
     fn load_current_sqlite(conn: &mut SqliteConnection) -> Result<Vec<Self>, DatabaseError> {
         use crate::schema::price_changes::dsl::*;
         use crate::schema::stations::dsl::*;
+
         let p2 = diesel::alias!(crate::schema::price_changes as p2);
         let rows = stations
             .inner_join(price_changes)
@@ -70,18 +76,20 @@ impl StationPriceChange {
                     .select(diesel::dsl::max(p2.field(updated)))
                     .single_value()),
             )
-            .select((name, addr, updated, price))
+            .select((name, addr, updated, price, latitude, longitude))
             .order_by(name.asc())
             .then_order_by(addr.asc())
-            .load::<(String, String, NaiveDateTime, i32)>(conn)?;
+            .load::<(String, String, NaiveDateTime, i32, Option<f64>, Option<f64>)>(conn)?;
 
         rows.into_iter()
-            .map(|(station_name, station_addr, changed_at, raw_price)| {
+            .map(|(station_name, station_addr, changed_at, raw_price, station_latitude, station_longitude)| {
                 Ok(Self {
                     name: station_name,
                     addr: station_addr,
                     updated: Utc.from_utc_datetime(&changed_at),
                     price: convert_price(raw_price)?,
+                    latitude: station_latitude,
+                    longitude: station_longitude,
                 })
             })
             .collect()
@@ -92,21 +100,24 @@ impl StationPriceChange {
         conn: &mut SqliteConnection,
     ) -> Result<Vec<Self>, DatabaseError> {
         use crate::schema::price_changes::dsl::*;
-        use crate::schema::stations::dsl::{id, *};
+        use crate::schema::stations::dsl::{id as station_pk, *};
+
         let rows = stations
             .inner_join(price_changes)
-            .filter(id.eq(station_id_value))
-            .select((name, addr, updated, price))
+            .filter(station_pk.eq(station_id_value))
+            .select((name, addr, updated, price, latitude, longitude))
             .order_by(updated.desc())
-            .load::<(String, String, NaiveDateTime, i32)>(conn)?;
+            .load::<(String, String, NaiveDateTime, i32, Option<f64>, Option<f64>)>(conn)?;
 
         rows.into_iter()
-            .map(|(station_name, station_addr, changed_at, raw_price)| {
+            .map(|(station_name, station_addr, changed_at, raw_price, station_latitude, station_longitude)| {
                 Ok(Self {
                     name: station_name,
                     addr: station_addr,
                     updated: Utc.from_utc_datetime(&changed_at),
                     price: convert_price(raw_price)?,
+                    latitude: station_latitude,
+                    longitude: station_longitude,
                 })
             })
             .collect()

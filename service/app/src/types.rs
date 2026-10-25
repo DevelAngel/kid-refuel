@@ -32,6 +32,7 @@ pub struct StationPriceChange {
     pub addr: String,
     pub price: [u8; 3],
     pub updated: DateTime<Utc>,
+    pub coordinates: Option<(f64, f64)>,
 }
 
 #[cfg(feature = "ssr")]
@@ -42,6 +43,10 @@ impl From<DBStationPriceChange> for StationPriceChange {
             addr: src.addr,
             price: src.price,
             updated: src.updated,
+            coordinates: match (src.latitude, src.longitude) {
+                (Some(latitude), Some(longitude)) => Some((latitude, longitude)),
+                _ => None,
+            },
         }
     }
 }
