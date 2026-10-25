@@ -3,10 +3,6 @@ use crate::types::StationPriceChange;
 
 use chrono::prelude::*;
 use leptos::prelude::*;
-use leptos_chartistry::{
-    AspectRatio, AxisMarker, Chart, Colour, IntoInner, Line, Series, Step, TickLabels, Tooltip,
-    XGridLine, YGridLine,
-};
 
 const MAX_STATIONS: usize = 6;
 const WINDOW_WEEKS: i64 = 2;
@@ -18,6 +14,14 @@ const COLOURS: [(u8, u8, u8); 6] = [
     (167, 139, 250),
     (251, 146, 60),
 ];
+const PRICE_STEP: f64 = 0.05;
+const MAX_PRICE_TICKS: i64 = 10;
+const CHART_WIDTH: f64 = 900.0;
+const CHART_HEIGHT: f64 = 560.0;
+const MARGIN_LEFT: f64 = 64.0;
+const MARGIN_RIGHT: f64 = 16.0;
+const MARGIN_TOP: f64 = 12.0;
+const MARGIN_BOTTOM: f64 = 36.0;
 
 #[derive(Clone, Debug, PartialEq)]
 pub(crate) struct NearbyStation {
@@ -149,65 +153,231 @@ pub(crate) fn PriceComparison(stations: Memo<Option<Vec<NearbyStation>>>) -> imp
     }
 }
 
+/// Ticks on multiples of five cents covering `min` to `max`. The step grows in
+/// multiples of five cents if the range needs more than `MAX_PRICE_TICKS` ticks.
+fn price_ticks(min: f64, max: f64) -> Vec<f64> {
+    let mut low = (min / PRICE_STEP + 1e-9).floor() as i64;
+    let mut high = (max / PRICE_STEP - 1e-9).ceil() as i64;
+    if high <= low {
+        high = low + 1;
+    }
+    let mut step = 1;
+    while (high - low) / step + 1 > MAX_PRICE_TICKS {
+        step *= 2;
+    }
+    low = low.div_euclid(step) * step;
+    high = (high + step - 1).div_euclid(step) * step;
+
+    (low..=high)
+        .step_by(step as usize)
+        .map(|units| units as f64 * PRICE_STEP)
+        .collect()
+}
+
+fn format_price(value: f64) -> String {
+    format!("{value:.3}").replace('.', ",")
+}
+
+fn format_time(timestamp: DateTime<Utc>, local: bool, format: &str) -> String {
+    if local {
+        timestamp.with_timezone(&Local).format(format).to_string()
+    } else {
+        timestamp.format(format).to_string()
+    }
+}
+
+/// Midnights of the time zone within `start` to `end`.
+fn day_ticks<Tz: TimeZone>(
+    start: DateTime<Utc>,
+    end: DateTime<Utc>,
+    tz: &Tz,
+) -> Vec<DateTime<Utc>> {
+    let mut ticks = Vec::new();
+    let mut date = start.with_timezone(tz).date_naive();
+    loop {
+        let midnight = date
+            .and_hms_opt(0, 0, 0)
+            .and_then(|local| tz.from_local_datetime(&local).earliest())
+            .map(|local| local.with_timezone(&Utc));
+        match midnight {
+            Some(midnight) if midnight > end => break,
+            Some(midnight) if midnight >= start => ticks.push(midnight),
+            _ => {}
+        }
+        match date.succ_opt() {
+            Some(next) => date = next,
+            None => break,
+        }
+    }
+    ticks
+}
+
+fn step_path(points: impl Iterator<Item = (f64, f64)>) -> String {
+    points
+        .enumerate()
+        .map(|(index, (x, y))| {
+            if index == 0 {
+                format!("M{x:.1},{y:.1}")
+            } else {
+                format!("H{x:.1} V{y:.1}")
+            }
+        })
+        .collect::<Vec<_>>()
+        .join(" ")
+}
+
 #[component]
 fn ComparisonChart(comparison: Comparison) -> impl IntoView {
-    if comparison.rows.is_empty() {
+    let (Some(first), Some(last)) = (comparison.rows.first(), comparison.rows.last()) else {
         return view! { <p class="text-sm text-slate-400">"No price history available."</p> }
             .into_any();
-    }
+    };
+    let (start, end) = (first.timestamp, last.timestamp);
+    let (min, max) = comparison
+        .rows
+        .iter()
+        .flat_map(|row| row.prices.iter().copied())
+        .fold((f64::MAX, f64::MIN), |(low, high), price| {
+            (low.min(price), high.max(price))
+        });
+    let y_ticks = price_ticks(min, max);
+    let low = y_ticks.first().copied().unwrap_or(min);
+    let high = y_ticks.last().copied().unwrap_or(max);
+
+    let plot_right = CHART_WIDTH - MARGIN_RIGHT;
+    let plot_bottom = CHART_HEIGHT - MARGIN_BOTTOM;
+    let label_x = MARGIN_LEFT - 8.0;
+    let axis_label_y = plot_bottom + 20.0;
+    let milliseconds = (end - start).num_milliseconds().max(1) as f64;
+    let x_of = move |timestamp: DateTime<Utc>| {
+        MARGIN_LEFT
+            + (timestamp - start).num_milliseconds() as f64 / milliseconds
+                * (plot_right - MARGIN_LEFT)
+    };
+    let y_of = move |price: f64| {
+        plot_bottom - (price - low) / (high - low) * (plot_bottom - MARGIN_TOP)
+    };
 
     let hydrated = RwSignal::new(false);
     Effect::new(move |_| hydrated.set(true));
-    let tick_labels = move |format: &'static str| {
-        TickLabels::timestamps().with_format(move |value, formatter| {
-            if hydrated.get() {
-                value.with_timezone(&Local).format(format).to_string()
-            } else {
-                formatter.format(value)
+
+    let y_axis = y_ticks
+        .iter()
+        .map(|&tick| {
+            let y = y_of(tick);
+            view! {
+                <line x1=MARGIN_LEFT x2=plot_right y1=y y2=y class="stroke-slate-800" />
+                <text x=label_x y=y dy="0.35em" text-anchor="end" font-size="12" class="fill-slate-400">
+                    {format_price(tick)}
+                </text>
             }
         })
-    };
-    let time_labels = tick_labels("%a %d.%m.");
-    let mut tooltip = Tooltip::left_cursor();
-    tooltip.x_ticks = tick_labels("%a %d.%m. %H:%M");
+        .collect_view();
 
-    let labels = comparison.labels;
-    let colours = (0..labels.len())
+    let x_axis = move || {
+        let local = hydrated.get();
+        let ticks = if local {
+            day_ticks(start, end, &Local)
+        } else {
+            day_ticks(start, end, &Utc)
+        };
+        ticks
+            .into_iter()
+            .map(|tick| {
+                let x = x_of(tick);
+                view! {
+                    <line x1=x x2=x y1=MARGIN_TOP y2=plot_bottom class="stroke-slate-800" />
+                    <text x=x y=axis_label_y text-anchor="middle" font-size="12" class="fill-slate-400">
+                        {format_time(tick, local, "%a %d.")}
+                    </text>
+                }
+            })
+            .collect_view()
+    };
+
+    let colours = (0..comparison.labels.len())
         .map(|index| COLOURS[index % COLOURS.len()])
         .collect::<Vec<_>>();
-    let series = labels.iter().zip(&colours).enumerate().fold(
-        Series::new(|row: &ChartRow| row.timestamp),
-        |series, (index, (label, &(red, green, blue)))| {
-            series.line(
-                Line::new(move |row: &ChartRow| row.prices[index])
-                    .with_name(label.clone())
-                    .with_colour(Colour::from_rgb(red, green, blue))
-                    .with_interpolation(Step::Horizontal),
-            )
-        },
-    );
-    let rows = comparison.rows;
-    let data = Signal::derive(move || rows.clone());
+    let lines = colours
+        .iter()
+        .enumerate()
+        .map(|(index, &(red, green, blue))| {
+            let path = step_path(comparison.rows.iter().filter_map(|row| {
+                row.prices
+                    .get(index)
+                    .map(|&price| (x_of(row.timestamp), y_of(price)))
+            }));
+            view! {
+                <path
+                    d=path
+                    fill="none"
+                    stroke=format!("rgb({red}, {green}, {blue})")
+                    stroke-width="2"
+                    stroke-linejoin="round"
+                    vector-effect="non-scaling-stroke"
+                />
+            }
+        })
+        .collect_view();
+
+    let hovers = comparison
+        .rows
+        .iter()
+        .enumerate()
+        .map(|(index, row)| {
+            let x = x_of(row.timestamp);
+            let next = comparison
+                .rows
+                .get(index + 1)
+                .map_or(plot_right, |next| x_of(next.timestamp));
+            let timestamp = row.timestamp;
+            let readings = comparison
+                .labels
+                .iter()
+                .zip(&row.prices)
+                .map(|(label, &price)| format!("{label}: {}", format_price(price)))
+                .collect::<Vec<_>>()
+                .join("\n");
+            view! {
+                <rect
+                    x=x
+                    y=MARGIN_TOP
+                    width=(next - x).max(1.0)
+                    height=plot_bottom - MARGIN_TOP
+                    class="fill-transparent hover:fill-white/10"
+                >
+                    <title>
+                        {move || {
+                            format!(
+                                "{}\n{readings}",
+                                format_time(timestamp, hydrated.get(), "%a %d.%m. %H:%M"),
+                            )
+                        }}
+                    </title>
+                </rect>
+            }
+        })
+        .collect_view();
 
     view! {
         <div class="w-full overflow-x-auto">
-            <Chart
-                aspect_ratio=AspectRatio::from_outer_ratio(900.0, 600.0)
-                bottom=time_labels
-                left=TickLabels::aligned_floats()
-                inner=[
-                    AxisMarker::left_edge().into_inner(),
-                    AxisMarker::bottom_edge().into_inner(),
-                    XGridLine::default().into_inner(),
-                    YGridLine::default().into_inner(),
-                ]
-                tooltip=tooltip
-                series=series
-                data=data
-            />
+            <svg
+                viewBox=format!("0 0 {CHART_WIDTH} {CHART_HEIGHT}")
+                class="h-auto w-full min-w-[640px]"
+                role="img"
+                aria-label="Price comparison of the nearest stations"
+            >
+                {y_axis}
+                {x_axis}
+                <line x1=MARGIN_LEFT x2=MARGIN_LEFT y1=MARGIN_TOP y2=plot_bottom class="stroke-slate-600" />
+                <line x1=MARGIN_LEFT x2=plot_right y1=plot_bottom y2=plot_bottom class="stroke-slate-600" />
+                {lines}
+                {hovers}
+            </svg>
         </div>
         <ul class="mt-4 flex flex-wrap gap-x-6 gap-y-2 text-sm text-slate-300">
-            {labels
+            {comparison
+                .labels
                 .into_iter()
                 .zip(colours)
                 .map(|(label, (red, green, blue))| {
@@ -244,9 +414,9 @@ pub async fn get_price_comparison(
 
 #[cfg(test)]
 mod tests {
-    use super::{NearbyStation, build_comparison, nearest_stations};
+    use super::{NearbyStation, build_comparison, day_ticks, format_price, nearest_stations, price_ticks, step_path};
     use crate::types::StationPriceChange;
-    use chrono::{DateTime, Duration, TimeZone, Utc};
+    use chrono::{DateTime, Duration, FixedOffset, TimeZone, Utc};
 
     fn end() -> DateTime<Utc> {
         Utc.with_ymd_and_hms(2026, 10, 25, 12, 0, 0).unwrap()
@@ -356,5 +526,70 @@ mod tests {
 
         assert_eq!(comparison.labels, vec!["Station 1"]);
         assert!(comparison.rows.iter().all(|row| row.prices.len() == 1));
+    }
+
+    fn formatted(ticks: &[f64]) -> Vec<String> {
+        ticks.iter().map(|tick| format_price(*tick)).collect()
+    }
+
+    #[test]
+    fn formats_prices_with_three_decimals_and_a_comma() {
+        assert_eq!(format_price(2.25), "2,250");
+        assert_eq!(format_price(2.2), "2,200");
+        assert_eq!(format_price(1.7999), "1,800");
+    }
+
+    #[test]
+    fn places_price_ticks_on_multiples_of_five_cents() {
+        assert_eq!(
+            formatted(&price_ticks(2.234, 2.3)),
+            vec!["2,200", "2,250", "2,300"]
+        );
+    }
+
+    #[test]
+    fn keeps_a_tick_that_equals_the_price() {
+        assert_eq!(formatted(&price_ticks(2.25, 2.25)), vec!["2,250", "2,300"]);
+    }
+
+    #[test]
+    fn widens_the_tick_step_for_a_large_price_range() {
+        let ticks = price_ticks(1.0, 3.0);
+
+        assert!(ticks.len() <= 10);
+        assert!(ticks[0] <= 1.0 && ticks[ticks.len() - 1] >= 3.0);
+        assert!(ticks.iter().all(|tick| {
+            let units = tick / 0.05;
+            (units - units.round()).abs() < 1e-6
+        }));
+    }
+
+    #[test]
+    fn finds_local_midnights_within_the_range() {
+        let start = Utc.with_ymd_and_hms(2026, 10, 20, 10, 0, 0).unwrap();
+        let end = Utc.with_ymd_and_hms(2026, 10, 22, 10, 0, 0).unwrap();
+        let berlin_summer = FixedOffset::east_opt(2 * 3600).unwrap();
+
+        assert_eq!(
+            day_ticks(start, end, &Utc),
+            vec![
+                Utc.with_ymd_and_hms(2026, 10, 21, 0, 0, 0).unwrap(),
+                Utc.with_ymd_and_hms(2026, 10, 22, 0, 0, 0).unwrap(),
+            ]
+        );
+        assert_eq!(
+            day_ticks(start, end, &berlin_summer),
+            vec![
+                Utc.with_ymd_and_hms(2026, 10, 20, 22, 0, 0).unwrap(),
+                Utc.with_ymd_and_hms(2026, 10, 21, 22, 0, 0).unwrap(),
+            ]
+        );
+    }
+
+    #[test]
+    fn draws_a_price_as_horizontal_then_vertical_steps() {
+        let path = step_path([(0.0, 10.0), (5.0, 20.0), (8.0, 15.0)].into_iter());
+
+        assert_eq!(path, "M0.0,10.0 H5.0 V20.0 H8.0 V15.0");
     }
 }
