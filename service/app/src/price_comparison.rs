@@ -150,15 +150,18 @@ fn ComparisonChart(comparison: Comparison) -> impl IntoView {
 
     let hydrated = RwSignal::new(false);
     Effect::new(move |_| hydrated.set(true));
-    let time_labels = TickLabels::timestamps().with_format(move |value, formatter| {
-        if hydrated.get() {
-            value.with_timezone(&Local).format("%a %H:%M").to_string()
-        } else {
-            formatter.format(value)
-        }
-    });
+    let labels = move |format: &'static str| {
+        TickLabels::timestamps().with_format(move |value, formatter| {
+            if hydrated.get() {
+                value.with_timezone(&Local).format(format).to_string()
+            } else {
+                formatter.format(value)
+            }
+        })
+    };
+    let time_labels = labels("%a %d.%m.");
     let mut tooltip = Tooltip::left_cursor();
-    tooltip.x_ticks = time_labels.clone();
+    tooltip.x_ticks = labels("%a %d.%m. %H:%M");
 
     let series = comparison.labels.into_iter().enumerate().fold(
         Series::new(|row: &ChartRow| row.timestamp),
@@ -176,7 +179,7 @@ fn ComparisonChart(comparison: Comparison) -> impl IntoView {
     view! {
         <div class="w-full overflow-x-auto">
             <Chart
-                aspect_ratio=AspectRatio::from_outer_ratio(900.0, 360.0)
+                aspect_ratio=AspectRatio::from_outer_ratio(900.0, 600.0)
                 bottom=time_labels
                 left=TickLabels::aligned_floats()
                 right=Legend::middle()
