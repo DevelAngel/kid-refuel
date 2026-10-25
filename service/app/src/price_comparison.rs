@@ -9,7 +9,7 @@ use leptos_chartistry::{
 };
 
 const MAX_STATIONS: usize = 6;
-const WINDOW_WEEKS: i64 = 5;
+const WINDOW_WEEKS: i64 = 2;
 
 #[derive(Clone, Debug, PartialEq)]
 pub(crate) struct NearbyStation {
@@ -301,11 +301,11 @@ mod tests {
 
     #[test]
     fn starts_a_price_from_before_the_window_at_the_window_start() {
-        let changes = vec![change(1, 40, [1, 80, 0]), change(1, 0, [1, 70, 0])];
+        let changes = vec![change(1, 20, [1, 80, 0]), change(1, 0, [1, 70, 0])];
 
         let comparison = build_comparison(&[nearby(1)], &changes);
 
-        assert_eq!(comparison.rows[0].timestamp, end() - Duration::weeks(5));
+        assert_eq!(comparison.rows[0].timestamp, end() - Duration::weeks(2));
         assert_eq!(comparison.rows[0].prices, vec![1.8]);
     }
 
