@@ -1,3 +1,4 @@
+use crate::price_comparison::{PriceComparison, nearest_stations};
 use crate::price_list::PriceListItem;
 use crate::types::StationPriceChange;
 
@@ -8,6 +9,12 @@ pub fn CurrentPrices() -> impl IntoView {
     let list = Resource::new(|| (), |_| async move { get_current_prices().await });
     let fallback_position = Resource::new(|| (), |_| async move { crate::prelude::get_fallback_position().await });
     let browser_position = crate::distance::use_browser_position();
+    let nearby = Memo::new(move |_| {
+        let list = list.get()?.ok()?;
+        let fallback = fallback_position.get()?.ok()?;
+        let position = browser_position.get().or(Some(fallback));
+        Some(nearest_stations(&crate::distance::sort_by_distance(list, position)))
+    });
 
     view! {
         <section class="space-y-6">
@@ -22,6 +29,7 @@ pub fn CurrentPrices() -> impl IntoView {
                     "Compare the latest recorded prices at nearby stations."
                 </p>
             </header>
+            <PriceComparison stations=nearby />
             <div class="grid grid-cols-1 gap-4 md:grid-cols-2 xl:grid-cols-3">
                 <Suspense fallback=move || {
                     view! {
