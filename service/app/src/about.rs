@@ -25,6 +25,7 @@ pub fn About() -> impl IntoView {
                     "Use the current overview to compare the latest observations, or explore station history to see how prices have changed."
                 </p>
             </div>
+            <BrowserPosition />
             <section class="space-y-3">
                 <h2 class="text-2xl font-bold text-white">"Station coordinate coverage"</h2>
                 <Suspense fallback=move || view! { <p class="text-slate-400">"Loading station coordinates..."</p> }>
@@ -190,6 +191,92 @@ pub fn About() -> impl IntoView {
     }
 }
 
+#[cfg_attr(not(feature = "hydrate"), allow(dead_code))]
+#[derive(Clone)]
+enum PositionState {
+    Pending,
+    Granted { latitude: f64, longitude: f64 },
+    Denied,
+    Failed(String),
+}
+
+#[cfg_attr(not(feature = "hydrate"), allow(dead_code))]
+impl PositionState {
+    const PERMISSION_DENIED: u16 = 1;
+
+    fn from_error(code: u16, message: String) -> Self {
+        if code == Self::PERMISSION_DENIED {
+            Self::Denied
+        } else {
+            Self::Failed(message)
+        }
+    }
+}
+
+#[cfg(feature = "hydrate")]
+fn request_position(state: RwSignal<PositionState>) {
+    use wasm_bindgen::{JsCast, closure::Closure};
+    use web_sys::{Position, PositionError};
+
+    let Ok(geolocation) = window().navigator().geolocation() else {
+        let _ = state.try_set(PositionState::Failed(
+            "Geolocation is not supported by this browser.".to_owned(),
+        ));
+        return;
+    };
+    let on_success = Closure::once_into_js(move |position: Position| {
+        let coords = position.coords();
+        let _ = state.try_set(PositionState::Granted {
+            latitude: coords.latitude(),
+            longitude: coords.longitude(),
+        });
+    });
+    let on_error = Closure::once_into_js(move |error: PositionError| {
+        let _ = state.try_set(PositionState::from_error(error.code(), error.message()));
+    });
+
+    if let Err(error) = geolocation
+        .get_current_position_with_error_callback(on_success.unchecked_ref(), Some(on_error.unchecked_ref()))
+    {
+        let _ = state.try_set(PositionState::Failed(format!("{error:?}")));
+    }
+}
+
+#[cfg(not(feature = "hydrate"))]
+fn request_position(_state: RwSignal<PositionState>) {}
+
+#[component]
+fn BrowserPosition() -> impl IntoView {
+    let state = RwSignal::new(PositionState::Pending);
+    Effect::new(move |_| request_position(state));
+
+    view! {
+        <section class="space-y-3">
+            <h2 class="text-2xl font-bold text-white">"Browser position"</h2>
+            {move || match state.get() {
+                PositionState::Pending => view! {
+                    <p class="text-slate-400">"Determining position..."</p>
+                }.into_any(),
+                PositionState::Granted { latitude, longitude } => view! {
+                    <p class="rounded-xl border border-slate-800 bg-slate-900 p-5 text-slate-200">
+                        {format!("Latitude {latitude:.5}, longitude {longitude:.5}")}
+                    </p>
+                }.into_any(),
+                PositionState::Denied => view! {
+                    <p class="rounded-xl border border-amber-900 bg-amber-950/30 p-5 text-amber-200">
+                        "Location permission was not granted."
+                    </p>
+                }.into_any(),
+                PositionState::Failed(reason) => view! {
+                    <p class="rounded-xl border border-red-900 bg-red-950/50 p-5 text-red-200">
+                        {format!("Position could not be determined: {reason}")}
+                    </p>
+                }.into_any(),
+            }}
+        </section>
+    }
+}
+
 #[server(endpoint = "get_station_coordinate_coverage")]
 pub async fn get_station_coordinate_coverage() -> Result<(i64, i64), ServerFnError> {
     use refuel_db::establish_connection_sqlite;
@@ -201,4 +288,25 @@ pub async fn get_station_coordinate_coverage() -> Result<(i64, i64), ServerFnErr
         .map_err(|error| ServerFnError::new(error.to_string()))?;
 
     Ok((coverage.total, coverage.complete))
+}
+
+#[cfg(test)]
+mod tests {
+    use super::PositionState;
+
+    #[test]
+    fn permission_denied_maps_to_denied() {
+        let state = PositionState::from_error(1, "User denied Geolocation".to_owned());
+
+        assert!(matches!(state, PositionState::Denied));
+    }
+
+    #[test]
+    fn other_errors_keep_the_browser_message() {
+        for code in [2, 3] {
+            let state = PositionState::from_error(code, "reason".to_owned());
+
+            assert!(matches!(state, PositionState::Failed(reason) if reason == "reason"));
+        }
+    }
 }
