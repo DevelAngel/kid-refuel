@@ -79,6 +79,7 @@ mod tests {
 
     fn station(name: &str, coordinates: Option<(f64, f64)>) -> StationPriceChange {
         StationPriceChange {
+            station_id: 0,
             name: name.to_owned(),
             addr: String::new(),
             price: [1, 2, 3],
