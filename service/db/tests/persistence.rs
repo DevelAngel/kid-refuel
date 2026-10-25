@@ -149,6 +149,38 @@ fn migration_deduplicates_existing_stations_and_observations() {
 }
 
 #[test]
+fn price_queries_return_complete_coordinates_and_fill_partial_pairs() {
+    let mut conn = connection();
+    let station_id = NewStation {
+        name: "Alpha",
+        addr: "1 Main Street",
+    }
+    .save(&mut conn)
+    .unwrap();
+    save_observation(&mut conn, station_id, (2026, 10, 1), 1234);
+
+    {
+        let AnyConnection::Sqlite(sqlite) = &mut conn;
+        diesel::sql_query("UPDATE stations SET latitude = 51.0 WHERE id = ?")
+            .bind::<diesel::sql_types::Integer, _>(station_id)
+            .execute(sqlite)
+            .unwrap();
+    }
+
+    Station::fill_missing_coordinates(station_id, 52.0, 13.7, &mut conn).unwrap();
+
+    let current = StationPriceChange::load_current(&mut conn).unwrap();
+    assert_eq!(current.len(), 1);
+    assert_eq!(current[0].latitude, Some(52.0));
+    assert_eq!(current[0].longitude, Some(13.7));
+
+    let history = StationPriceChange::load_station(station_id, &mut conn).unwrap();
+    assert_eq!(history[0].latitude, Some(52.0));
+    assert_eq!(history[0].longitude, Some(13.7));
+}
+
+
+#[test]
 fn coordinate_coverage_counts_only_stations_with_both_coordinates() {
     use refuel_db::prelude::CoordinateCoverage;
 

@@ -40,16 +40,9 @@ impl Station {
                 diesel::update(
                     stations
                         .filter(id.eq(station_id_value))
-                        .filter(latitude.is_null()),
+                        .filter(latitude.is_null().or(longitude.is_null())),
                 )
-                .set(latitude.eq(new_latitude))
-                .execute(conn)?;
-                diesel::update(
-                    stations
-                        .filter(id.eq(station_id_value))
-                        .filter(longitude.is_null()),
-                )
-                .set(longitude.eq(new_longitude))
+                .set((latitude.eq(new_latitude), longitude.eq(new_longitude)))
                 .execute(conn)?;
                 Ok(())
             }
