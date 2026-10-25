@@ -8,7 +8,7 @@ use leptos_chartistry::{
     XGridLine, YGridLine,
 };
 
-const MAX_STATIONS: usize = 8;
+const MAX_STATIONS: usize = 6;
 const WINDOW_WEEKS: i64 = 5;
 
 #[derive(Clone, Debug, PartialEq)]
@@ -243,7 +243,7 @@ mod tests {
     }
 
     #[test]
-    fn selects_the_eight_nearest_stations_in_order() {
+    fn selects_the_six_nearest_stations_in_order() {
         let sorted = (1..=10)
             .map(|id| station(id, Some(f64::from(id))))
             .collect::<Vec<_>>();
@@ -253,11 +253,11 @@ mod tests {
             .map(|station| station.id)
             .collect::<Vec<_>>();
 
-        assert_eq!(ids, (1..=8).collect::<Vec<_>>());
+        assert_eq!(ids, (1..=6).collect::<Vec<_>>());
     }
 
     #[test]
-    fn selects_every_station_when_fewer_than_eight_exist() {
+    fn selects_every_station_when_fewer_than_six_exist() {
         let sorted = vec![station(1, Some(1.0)), station(2, Some(2.0))];
 
         assert_eq!(nearest_stations(&sorted).len(), 2);
