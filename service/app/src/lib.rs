@@ -8,6 +8,7 @@ mod collection_diagnostics;
 mod distance;
 mod current_prices;
 mod fuel_price;
+mod price_comparison;
 mod price_history;
 mod price_list;
 mod types;
