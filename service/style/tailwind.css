@@ -16,3 +16,18 @@
 .price-history-chart ._chartistry_tooltip svg text {
     fill: #f8fafc;
 }
+
+@keyframes card-reorder {
+    from {
+        opacity: 0.75;
+        transform: translateY(6px);
+    }
+    to {
+        opacity: 1;
+        transform: translateY(0);
+    }
+}
+
+.station-card-reorder {
+    animation: card-reorder 280ms ease-out;
+}

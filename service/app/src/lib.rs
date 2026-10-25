@@ -5,6 +5,7 @@ mod fallback_position;
 mod all_prices;
 mod app;
 mod collection_diagnostics;
+mod distance;
 mod current_prices;
 mod fuel_price;
 mod price_history;
