@@ -6,7 +6,8 @@ use tokio::sync::watch;
 use tokio::time;
 use tracing::error;
 
-use chrono::{Local, NaiveTime, Timelike};
+use chrono::{NaiveTime, Timelike, Utc};
+use chrono_tz::Tz;
 
 const NIGHT_INTERVAL: Duration = Duration::from_secs(3 * 60 * 60);
 
@@ -28,13 +29,14 @@ pub(crate) async fn run_schedule<F, Fut, E>(
     mut shutdown: watch::Receiver<bool>,
     interval: Duration,
     jitter: Duration,
+    source_time_zone: Tz,
 ) where
     F: FnMut() -> Fut,
     Fut: Future<Output = Result<(), E>>,
     E: std::fmt::Display,
 {
     loop {
-        let interval = interval_at(Local::now().time()).unwrap_or(interval);
+        let interval = interval_at(Utc::now().with_timezone(&source_time_zone).time()).unwrap_or(interval);
         let delay = next_delay(&mut rand::thread_rng(), interval, jitter);
         tokio::select! {
             changed = shutdown.changed() => {
@@ -203,6 +205,7 @@ mod tests {
                     shutdown_rx,
                     Duration::from_millis(1),
                     Duration::ZERO,
+                    chrono_tz::Europe::Berlin,
                 )
                 .await;
             }

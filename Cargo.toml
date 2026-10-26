@@ -35,6 +35,7 @@ assert_fs = "1.1"
 axum = { version = "0.8" }
 axum-macros = { version = "0.5" }
 chrono = { version = "0.4.24" }
+chrono-tz = "0.10"
 clap = { version = "4.2.5", features = ["derive"] }
 console_error_panic_hook = "0.1"
 cucumber = { version = "0.21", features = ["macros"] }

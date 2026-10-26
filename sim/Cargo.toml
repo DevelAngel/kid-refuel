@@ -19,6 +19,7 @@ askama_axum = { workspace = true }
 axum = { workspace = true }
 axum-macros = { workspace = true }
 chrono = { workspace = true }
+chrono-tz = { workspace = true }
 hyper = { workspace = true }
 tokio = { workspace = true, features = ["time"] }
 tracing = { workspace = true }

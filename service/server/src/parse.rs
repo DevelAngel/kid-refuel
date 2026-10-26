@@ -1,7 +1,8 @@
 use crate::error::ParseError;
 use refuel_db::prelude::*;
 
-use chrono::{DateTime, Datelike, Local, TimeZone};
+use chrono::{DateTime, Datelike, FixedOffset, TimeZone, Utc};
+use chrono_tz::Tz;
 use regex::Regex;
 use scraper::{ElementRef, Html, Selector};
 use serde_json::Value;
@@ -30,7 +31,7 @@ impl Station {
 
 pub struct PriceChange {
     pub price: [u8; 3],
-    pub updated: DateTime<Local>,
+    pub updated: DateTime<FixedOffset>,
 }
 
 impl PriceChange {
@@ -84,7 +85,7 @@ impl StationPriceChange {
     }
 }
 #[tracing::instrument(skip(document))]
-pub(crate) async fn parse(document: &Html) -> Result<ParsedPrices> {
+pub(crate) async fn parse(document: &Html, source_time_zone: Tz) -> Result<ParsedPrices> {
     let price_list_selector = selector(".PriceList")?;
     let price_item_selector = selector(".PriceList__item:not(.list-ad)")?;
     let name_selector = selector(".PriceList__itemTitle")?;
@@ -103,9 +104,8 @@ pub(crate) async fn parse(document: &Html) -> Result<ParsedPrices> {
             pattern: "price",
             reason: error.to_string(),
         })?;
-
     if document.select(&price_list_selector).next().is_none() {
-        return parse_mehr_tanken(document);
+        return parse_mehr_tanken(document, source_time_zone);
     }
 
     let price_list = document
@@ -119,8 +119,8 @@ pub(crate) async fn parse(document: &Html) -> Result<ParsedPrices> {
     for element in price_list.select(&price_item_selector) {
         let parsed: Result<StationPriceChange> = (|| {
             let name = parse_text(&element, &name_selector, "station name")?;
+            let updated = parse_updated(&element, &updated_selector, &updated_regex, source_time_zone)?;
             let addr = parse_text(&element, &address_selector, "station address")?;
-            let updated = parse_updated(&element, &updated_selector, &updated_regex)?;
             let price = parse_price(&element, &price_selector, &price_regex)?;
 
             let attribute = |name: &str| {
@@ -160,7 +160,7 @@ pub(crate) async fn parse(document: &Html) -> Result<ParsedPrices> {
         rejected_entries,
     })
 }
-fn parse_mehr_tanken(document: &Html) -> Result<ParsedPrices> {
+fn parse_mehr_tanken(document: &Html, source_time_zone: Tz) -> Result<ParsedPrices> {
     let station_selector = selector("a[href^=\"/tankstelle/\"]")?;
     let price_container_selector = selector("[class*=\"gasStationInfo_gas-price\"]")?;
     let info_container_selector = selector("[class*=\"gasStationInfo_gas-info\"]")?;
@@ -197,7 +197,7 @@ fn parse_mehr_tanken(document: &Html) -> Result<ParsedPrices> {
         let parsed: Result<StationPriceChange> = (|| {
             let name = parse_text(&element, &name_selector, "station name")?;
             let addr = parse_text(&element, &address_selector, "station address")?;
-            let updated = parse_updated(&element, &updated_selector, &updated_regex)?;
+            let updated = parse_updated(&element, &updated_selector, &updated_regex, source_time_zone)?;
             let value = parse_text(&element, &price_selector, "price")?;
             let captures =
                 price_regex
@@ -321,7 +321,8 @@ fn parse_updated(
     element: &ElementRef<'_>,
     selector: &Selector,
     regex: &Regex,
-) -> Result<DateTime<Local>> {
+    source_time_zone: Tz,
+) -> Result<DateTime<FixedOffset>> {
     let value = parse_text(element, selector, "timestamp")?;
     let captures = regex
         .captures(&value)
@@ -348,7 +349,7 @@ fn parse_updated(
         value: value.clone(),
     })?;
 
-    let now = Local::now();
+    let now = Utc::now().with_timezone(&source_time_zone);
     let year = match parse_part("year") {
         Some(year) => year as i32,
         None if month > now.month() && month - now.month() > 6 => now.year() - 1,
@@ -356,9 +357,10 @@ fn parse_updated(
         None => now.year(),
     };
 
-    Local
+    source_time_zone
         .with_ymd_and_hms(year, month, day, hour, minute, 0)
-        .single()
+        .earliest()
+        .map(|updated| updated.fixed_offset())
         .ok_or(ParseError::InvalidUpdated { value })
 }
 
@@ -388,3 +390,51 @@ fn parse_price(element: &ElementRef<'_>, selector: &Selector, regex: &Regex) -> 
 
     Ok([eur, cent, subcent])
 }
+
+
+#[cfg(test)]
+mod tests {
+    use super::parse_updated;
+    use chrono::{DateTime, FixedOffset};
+    use chrono_tz::{Europe, Tz};
+    use regex::Regex;
+    use scraper::{Html, Selector};
+
+    fn parse_timestamp(value: &str, time_zone: Tz) -> super::Result<DateTime<FixedOffset>> {
+        let document = Html::parse_fragment(&format!(
+            "<section><span class='timestamp'>{value}</span></section>"
+        ));
+        let element = document
+            .select(&Selector::parse("section").unwrap())
+            .next()
+            .unwrap();
+        let selector = Selector::parse(".timestamp").unwrap();
+        let regex = Regex::new(
+            r"(?P<day>\d{1,2})\.(?P<month>\d{1,2})\.(?:\s*(?P<year>\d{4}))?\s*(?P<hour>\d{1,2}):(?P<minute>\d{2})",
+        )
+        .unwrap();
+        parse_updated(&element, &selector, &regex, time_zone)
+    }
+
+    #[test]
+    fn interprets_timestamps_in_the_configured_time_zone() {
+        let winter = parse_timestamp("15.01.2026 12:30", Europe::Berlin).unwrap();
+        let summer = parse_timestamp("15.07.2026 12:30", Europe::Berlin).unwrap();
+
+        assert_eq!(winter.offset().local_minus_utc(), 60 * 60);
+        assert_eq!(summer.offset().local_minus_utc(), 2 * 60 * 60);
+    }
+
+    #[test]
+    fn chooses_the_earlier_occurrence_during_the_autumn_transition() {
+        let updated = parse_timestamp("25.10.2026 02:30", Europe::Berlin).unwrap();
+
+        assert_eq!(updated.offset().local_minus_utc(), 2 * 60 * 60);
+    }
+
+    #[test]
+    fn rejects_nonexistent_local_times_during_the_spring_transition() {
+        assert!(parse_timestamp("29.03.2026 02:30", Europe::Berlin).is_err());
+    }
+}
+
