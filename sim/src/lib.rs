@@ -1,11 +1,11 @@
 use askama::Template;
-use chrono::{DateTime, Local};
+use chrono::{DateTime, Utc};
 
 #[derive(Clone)]
 struct RefuelStationData {
     name: String,
     addr: String,
-    updated: DateTime<Local>,
+    updated: DateTime<chrono_tz::Tz>,
     price: [u8; 3],
     latitude: f64,
     longitude: f64,
@@ -16,7 +16,7 @@ impl RefuelStationData {
         Self {
             name: name.to_owned(),
             addr: addr.to_owned(),
-            updated: Local::now(),
+            updated: Utc::now().with_timezone(&chrono_tz::Europe::Berlin),
             price,
             latitude,
             longitude,

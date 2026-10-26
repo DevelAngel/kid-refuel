@@ -1,4 +1,5 @@
 mod download;
+mod config;
 mod error;
 mod load;
 mod parse;
@@ -7,12 +8,13 @@ mod save;
 mod collection;
 
 use crate::download::*;
+use crate::config::SourceConfig;
 use crate::load::*;
 use crate::parse::*;
 use crate::save::*;
 
 use refuel_app::prelude::{App, CollectionDiagnostic, record_collection_diagnostic};
-use refuel_app::prelude::{FallbackPosition, set_fallback_position};
+use refuel_app::prelude::set_fallback_position;
 use refuel_app::shell;
 use refuel_db::*;
 
@@ -21,15 +23,16 @@ use leptos::prelude::*;
 use rand::prelude::*;
 
 use axum::Router;
-use clap::{Args, Parser, Subcommand};
+use clap::{Parser, Subcommand};
 
 use leptos_axum::{LeptosRoutes, generate_route_list};
 use std::path::PathBuf;
+use chrono_tz::Tz;
+use url::Url;
 use tokio::signal;
 use tokio::sync::watch;
 use tokio::time::{self, Duration};
 use tower_http::trace::TraceLayer;
-use url::Url;
 
 use tracing_subscriber::EnvFilter;
 
@@ -43,25 +46,16 @@ struct Cli {
     #[command(subcommand)]
     command: Option<Commands>,
     #[clap(flatten)]
-    common: CommonArgs,
+    common: SourceConfig,
 }
 
-#[derive(Args)]
-pub struct CommonArgs {
-    #[arg(short, long, value_name = "URL", default_value_t = Url::parse("http://localhost:8080").unwrap())]
-    /// URL of the price source
-    url: Url,
-    #[arg(long, value_name = "LATITUDE,LONGITUDE")]
-    /// Fallback position used when the browser position is unavailable
-    fallback_position: Option<FallbackPosition>,
-}
 
 #[derive(Subcommand)]
 enum Commands {
     /// Download only mode
     Download {
         #[clap(flatten)]
-        common: CommonArgs,
+        common: SourceConfig,
         #[arg(short, long, value_name = "FILE")]
         /// Filename of downloaded html document
         out: Option<PathBuf>,
@@ -69,7 +63,7 @@ enum Commands {
     /// Normal mode but only one run
     RunSingle {
         #[clap(flatten)]
-        common: CommonArgs,
+        common: SourceConfig,
         #[arg(short, long, value_name = "FILE")]
         /// Use downloaded html document
         downloaded: Option<PathBuf>,
@@ -80,7 +74,7 @@ enum Commands {
     /// Normal mode
     Run {
         #[clap(flatten)]
-        common: CommonArgs,
+        common: SourceConfig,
         #[arg(long)]
         /// do not save to database
         dry_run: bool,
@@ -115,6 +109,7 @@ async fn cmd_download(
 #[tracing::instrument(skip(url))]
 async fn cmd_run_single(
     url: &Url,
+    source_time_zone: Tz,
     downloaded: &Option<PathBuf>,
     dry_run: bool,
 ) -> Result<(), Box<dyn std::error::Error>> {
@@ -167,7 +162,7 @@ async fn cmd_run_single(
         return Err(std::io::Error::other(error).into());
     }
 
-    let parsed = match parse(&document).await {
+    let parsed = match parse(&document, source_time_zone).await {
         Ok(parsed) => parsed,
         Err(error) => {
             record_collection_diagnostic(CollectionDiagnostic {
@@ -252,12 +247,12 @@ async fn cmd_run_single(
 }
 
 #[tracing::instrument(skip(url))]
-async fn cmd_run_loop(url: &Url, dry_run: bool) -> Result<(), Box<dyn std::error::Error>> {
+async fn cmd_run_loop(url: &Url, dry_run: bool, source_time_zone: Tz) -> Result<(), Box<dyn std::error::Error>> {
     let mut rng = rand::thread_rng();
     let interval = Duration::from_secs(60 * 60); // 60 min
     let mut first_run = true;
     loop {
-        match cmd_run_single(url, &None, dry_run).await {
+        match cmd_run_single(url, source_time_zone, &None, dry_run).await {
             Ok(()) => {}
             Err(error) if first_run => return Err(error),
             Err(error) => tracing::error!("scheduled collection failed; continuing: {error}"),
@@ -303,10 +298,10 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
                 common,
                 downloaded,
                 dry_run,
-            } => cmd_run_single(&common.url, downloaded, dry_run.to_owned()).await?,
+            } => cmd_run_single(&common.url, common.source_time_zone, downloaded, dry_run.to_owned()).await?,
 
             Commands::Run { common, dry_run } => {
-                cmd_run_loop(&common.url, dry_run.to_owned()).await?
+                cmd_run_loop(&common.url, dry_run.to_owned(), common.source_time_zone).await?
             }
         }
     } else {
@@ -347,19 +342,21 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
                 .await
         });
 
-        if let Err(error) = cmd_run_single(&cli.common.url, &None, false).await {
+        if let Err(error) = cmd_run_single(&cli.common.url, cli.common.source_time_zone, &None, false).await {
             tracing::error!("initial collection failed; web server remains available: {error}");
         }
 
         let url = cli.common.url.clone();
+        let source_time_zone = cli.common.source_time_zone;
         let collector = collection::run_schedule(
             move || {
                 let url = url.clone();
-                async move { cmd_run_single(&url, &None, false).await }
+                async move { cmd_run_single(&url, source_time_zone, &None, false).await }
             },
             shutdown_rx,
             Duration::from_secs(60 * 60),
             Duration::from_secs(10 * 60),
+            source_time_zone,
         );
         tokio::pin!(collector);
 

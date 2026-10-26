@@ -5,7 +5,7 @@ use askama::Template;
 use askama_axum::{IntoResponse, Response};
 use axum::{Router, extract::State, routing::get};
 use axum_macros::debug_handler;
-use chrono::{DateTime, Local};
+use chrono::{DateTime, Utc};
 use tokio::sync::RwLock;
 use tokio::time::{Duration, sleep};
 use tokio::try_join;
@@ -18,7 +18,7 @@ use tracing::{error, info};
 struct RefuelStationData {
     name: String,
     addr: String,
-    updated: DateTime<Local>,
+    updated: DateTime<chrono_tz::Tz>,
     price: [u8; 3],
 }
 
@@ -26,7 +26,7 @@ impl RefuelStationData {
     fn new(name: &str, addr: &str, price: [u8; 3]) -> Self {
         let name = name.to_owned();
         let addr = addr.to_owned();
-        let updated = Local::now();
+        let updated = Utc::now().with_timezone(&chrono_tz::Europe::Berlin);
         Self {
             name,
             addr,
@@ -36,7 +36,7 @@ impl RefuelStationData {
     }
 
     fn update(&mut self, price: [u8; 3]) {
-        let updated = Local::now();
+        let updated = Utc::now().with_timezone(&chrono_tz::Europe::Berlin);
         self.price = price;
         self.updated = updated;
     }
