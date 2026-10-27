@@ -36,7 +36,8 @@ pub(crate) async fn run_schedule<F, Fut, E>(
     E: std::fmt::Display,
 {
     loop {
-        let interval = interval_at(Utc::now().with_timezone(&source_time_zone).time()).unwrap_or(interval);
+        let interval =
+            interval_at(Utc::now().with_timezone(&source_time_zone).time()).unwrap_or(interval);
         let delay = next_delay(&mut rand::thread_rng(), interval, jitter);
         tokio::select! {
             changed = shutdown.changed() => {

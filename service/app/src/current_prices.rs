@@ -7,13 +7,18 @@ use leptos::prelude::*;
 #[component]
 pub fn CurrentPrices() -> impl IntoView {
     let list = Resource::new(|| (), |_| async move { get_current_prices().await });
-    let fallback_position = Resource::new(|| (), |_| async move { crate::prelude::get_fallback_position().await });
+    let fallback_position = Resource::new(
+        || (),
+        |_| async move { crate::prelude::get_fallback_position().await },
+    );
     let browser_position = crate::distance::use_browser_position();
     let nearby = Memo::new(move |_| {
         let list = list.get()?.ok()?;
         let fallback = fallback_position.get()?.ok()?;
         let position = browser_position.get().or(Some(fallback));
-        Some(nearest_stations(&crate::distance::sort_by_distance(list, position)))
+        Some(nearest_stations(&crate::distance::sort_by_distance(
+            list, position,
+        )))
     });
 
     view! {
@@ -40,48 +45,81 @@ pub fn CurrentPrices() -> impl IntoView {
                 }>
                     {move || {
                         let current_browser_position = browser_position.get();
-                        list.get().zip(fallback_position.get()).map(|(result, fallback)| {
-                            match (result, fallback) {
-                                (Ok(list), Ok(_fallback)) if list.is_empty() => view! {
-                                    <p class="col-span-full rounded-xl border border-slate-800 bg-slate-900 p-6 text-slate-400">
-                                        "No current prices are available yet."
-                                    </p>
-                                }.into_any(),
-                                (Ok(list), Ok(fallback)) => {
-                                    let position = current_browser_position.or(Some(fallback));
-                                    let items = crate::distance::sort_by_distance(list, position).into_iter().enumerate().map(|(index, (item, distance))| (index, item, distance)).collect::<Vec<_>>();
-                                    view! {
-                                        <Show when=move || current_browser_position.is_none()>
-                                            <p class="col-span-full rounded-xl border border-amber-900 bg-amber-950/30 p-4 text-sm text-amber-200">
-                                                "Using the configured fallback position."
+                        list.get()
+                            .zip(fallback_position.get())
+                            .map(|(result, fallback)| {
+                                match (result, fallback) {
+                                    (Ok(list), Ok(_fallback)) if list.is_empty() => {
+                                        view! {
+                                            <p class="col-span-full rounded-xl border border-slate-800 bg-slate-900 p-6 text-slate-400">
+                                                "No current prices are available yet."
                                             </p>
-                                        </Show>
-                                        <For
-                                            each=move || items.clone()
-                                            key=|(index, item, _)| (item.name.clone(), item.addr.clone(), item.updated.timestamp_millis(), *index)
-                                            children=move |(_index, item, _distance)| {
-                                                let coordinates = item.coordinates;
-                                                let distance = Signal::derive(move || {
-                                                    let position = browser_position.get().or_else(|| fallback_position.get().and_then(Result::ok));
-                                                    position.and_then(|position| coordinates.map(|coordinates| crate::distance::distance_km(position, coordinates)))
-                                                });
-                                                view! { <PriceListItem item=item distance=distance /> }
-                                            }
-                                        />
-                                    }.into_any()
+                                        }
+                                            .into_any()
+                                    }
+                                    (Ok(list), Ok(fallback)) => {
+                                        let position = current_browser_position.or(Some(fallback));
+                                        let items = crate::distance::sort_by_distance(
+                                                list,
+                                                position,
+                                            )
+                                            .into_iter()
+                                            .enumerate()
+                                            .map(|(index, (item, distance))| (index, item, distance))
+                                            .collect::<Vec<_>>();
+                                        view! {
+                                            <Show when=move || current_browser_position.is_none()>
+                                                <p class="col-span-full rounded-xl border border-amber-900 bg-amber-950/30 p-4 text-sm text-amber-200">
+                                                    "Using the configured fallback position."
+                                                </p>
+                                            </Show>
+                                            <For
+                                                each=move || items.clone()
+                                                key=|(index, item, _)| (
+                                                    item.name.clone(),
+                                                    item.addr.clone(),
+                                                    item.updated.timestamp_millis(),
+                                                    *index,
+                                                )
+                                                children=move |(_index, item, _distance)| {
+                                                    let coordinates = item.coordinates;
+                                                    let distance = Signal::derive(move || {
+                                                        let position = browser_position
+                                                            .get()
+                                                            .or_else(|| fallback_position.get().and_then(Result::ok));
+                                                        position
+                                                            .and_then(|position| {
+                                                                coordinates
+                                                                    .map(|coordinates| crate::distance::distance_km(
+                                                                        position,
+                                                                        coordinates,
+                                                                    ))
+                                                            })
+                                                    });
+                                                    view! { <PriceListItem item=item distance=distance /> }
+                                                }
+                                            />
+                                        }
+                                            .into_any()
+                                    }
+                                    (Err(error), _) => {
+                                        view! {
+                                            <p class="col-span-full rounded-xl border border-red-900 bg-red-950/50 p-6 text-red-200">
+                                                {format!("Failed to load current prices: {error}")}
+                                            </p>
+                                        }
+                                            .into_any()
+                                    }
+                                    (_, Err(error)) => {
+                                        view! {
+                                            <p class="col-span-full rounded-xl border border-red-900 bg-red-950/50 p-6 text-red-200">
+                                                {format!("Failed to load fallback position: {error}")}
+                                            </p>
+                                        }
+                                            .into_any()
+                                    }
                                 }
-                                (Err(error), _) => view! {
-                                    <p class="col-span-full rounded-xl border border-red-900 bg-red-950/50 p-6 text-red-200">
-                                        {format!("Failed to load current prices: {error}")}
-                                    </p>
-                                }.into_any(),
-                                (_, Err(error)) => view! {
-                                    <p class="col-span-full rounded-xl border border-red-900 bg-red-950/50 p-6 text-red-200">
-                                        {format!("Failed to load fallback position: {error}")}
-                                    </p>
-                                }.into_any(),
-                            }
-                        })
+                            })
                     }}
                 </Suspense>
             </div>

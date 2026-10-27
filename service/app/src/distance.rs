@@ -62,10 +62,7 @@ fn request_position(position: RwSignal<Option<(f64, f64)>>) {
         let _ = position.try_set(Some((coordinates.latitude(), coordinates.longitude())));
     });
 
-    let _ = geolocation.get_current_position_with_error_callback(
-        on_success.unchecked_ref(),
-        None,
-    );
+    let _ = geolocation.get_current_position_with_error_callback(on_success.unchecked_ref(), None);
 }
 
 #[cfg(not(feature = "hydrate"))]

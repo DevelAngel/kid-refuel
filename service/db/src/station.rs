@@ -74,7 +74,6 @@ impl CoordinateCoverage {
     }
 }
 
-
 #[derive(Insertable)]
 #[diesel(table_name = stations)]
 pub struct NewStation<'a> {

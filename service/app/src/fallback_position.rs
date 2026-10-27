@@ -14,7 +14,8 @@ impl FromStr for FallbackPosition {
     type Err = String;
 
     fn from_str(value: &str) -> Result<Self, Self::Err> {
-        let invalid = || format!("invalid fallback position '{value}'; expected LATITUDE,LONGITUDE");
+        let invalid =
+            || format!("invalid fallback position '{value}'; expected LATITUDE,LONGITUDE");
         let (latitude, longitude) = value.split_once(',').ok_or_else(invalid)?;
         let latitude = latitude.parse::<f64>().map_err(|_| invalid())?;
         let longitude = longitude.parse::<f64>().map_err(|_| invalid())?;
@@ -29,7 +30,10 @@ impl FromStr for FallbackPosition {
             ));
         }
 
-        Ok(Self { latitude, longitude })
+        Ok(Self {
+            latitude,
+            longitude,
+        })
     }
 }
 

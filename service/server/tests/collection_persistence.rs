@@ -62,7 +62,7 @@ impl CollectionWorld {
 async fn mehr_tanken_page_is_input(world: &mut CollectionWorld) {
     let fixture = concat!(
         env!("CARGO_MANIFEST_DIR"),
-        "/../../examples/https___www.mehr-tanken.de_regional-tanken_sachsen_dresden_01067_.html"
+        "/../../examples/mehr-tanken-dresden-E5.html"
     );
     std::fs::copy(fixture, world.html_path()).expect("Mehr-Tanken HTML should be copied");
 }
@@ -213,9 +213,7 @@ async fn all_stored_stations_have_coordinates(world: &mut CollectionWorld) {
 async fn my_esso_keeps_its_stored_coordinates(world: &mut CollectionWorld) {
     let stations = world.stations();
     assert!(stations.iter().any(|station| {
-        station.name == "MyESSO"
-            && station.latitude == Some(1.5)
-            && station.longitude == Some(2.5)
+        station.name == "MyESSO" && station.latitude == Some(1.5) && station.longitude == Some(2.5)
     }));
 }
 

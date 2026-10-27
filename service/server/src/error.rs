@@ -40,7 +40,10 @@ mod tests {
             actual: "E5",
         };
 
-        assert_eq!(error.to_string(), "fuel type mismatch: expected E10, found E5");
+        assert_eq!(
+            error.to_string(),
+            "fuel type mismatch: expected E10, found E5"
+        );
     }
 
     #[test]
@@ -55,4 +58,3 @@ mod tests {
         );
     }
 }
-

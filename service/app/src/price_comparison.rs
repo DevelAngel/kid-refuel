@@ -41,9 +41,7 @@ struct ChartRow {
     prices: Vec<f64>,
 }
 
-pub(crate) fn nearest_stations(
-    sorted: &[(StationPriceChange, Option<f64>)],
-) -> Vec<NearbyStation> {
+pub(crate) fn nearest_stations(sorted: &[(StationPriceChange, Option<f64>)]) -> Vec<NearbyStation> {
     sorted
         .iter()
         .filter_map(|(item, distance)| {
@@ -117,9 +115,12 @@ fn price_eur(price: [u8; 3]) -> f64 {
 pub(crate) fn PriceComparison(stations: Memo<Option<Vec<NearbyStation>>>) -> impl IntoView {
     let changes = Resource::new(
         move || {
-            stations
-                .get()
-                .map(|stations| stations.iter().map(|station| station.id).collect::<Vec<_>>())
+            stations.get().map(|stations| {
+                stations
+                    .iter()
+                    .map(|station| station.id)
+                    .collect::<Vec<_>>()
+            })
         },
         |ids| async move {
             match ids {
@@ -132,21 +133,32 @@ pub(crate) fn PriceComparison(stations: Memo<Option<Vec<NearbyStation>>>) -> imp
     view! {
         <section class="price-history-chart rounded-xl border border-slate-800 bg-slate-900 p-4 shadow-sm">
             <h2 class="mb-4 text-lg font-semibold text-white">"Price comparison"</h2>
-            <Suspense fallback=move || view! { <p class="text-sm text-slate-400">"Loading price comparison..."</p> }>
+            <Suspense fallback=move || {
+                view! { <p class="text-sm text-slate-400">"Loading price comparison..."</p> }
+            }>
                 {move || {
-                    changes.get().map(|result| match result {
-                        Ok(changes) => {
-                            let stations = stations.get().unwrap_or_default();
-                            view! { <ComparisonChart comparison=build_comparison(&stations, &changes) /> }
-                                .into_any()
-                        }
-                        Err(error) => view! {
-                            <p class="text-sm text-red-200">
-                                {format!("Failed to load price comparison: {error}")}
-                            </p>
-                        }
-                            .into_any(),
-                    })
+                    changes
+                        .get()
+                        .map(|result| match result {
+                            Ok(changes) => {
+                                let stations = stations.get().unwrap_or_default();
+                                view! {
+                                    <ComparisonChart comparison=build_comparison(
+                                        &stations,
+                                        &changes,
+                                    ) />
+                                }
+                                    .into_any()
+                            }
+                            Err(error) => {
+                                view! {
+                                    <p class="text-sm text-red-200">
+                                        {format!("Failed to load price comparison: {error}")}
+                                    </p>
+                                }
+                                    .into_any()
+                            }
+                        })
                 }}
             </Suspense>
         </section>
@@ -254,9 +266,8 @@ fn ComparisonChart(comparison: Comparison) -> impl IntoView {
             + (timestamp - start).num_milliseconds() as f64 / milliseconds
                 * (plot_right - MARGIN_LEFT)
     };
-    let y_of = move |price: f64| {
-        plot_bottom - (price - low) / (high - low) * (plot_bottom - MARGIN_TOP)
-    };
+    let y_of =
+        move |price: f64| plot_bottom - (price - low) / (high - low) * (plot_bottom - MARGIN_TOP);
 
     let hydrated = RwSignal::new(false);
     Effect::new(move |_| hydrated.set(true));
@@ -267,7 +278,14 @@ fn ComparisonChart(comparison: Comparison) -> impl IntoView {
             let y = y_of(tick);
             view! {
                 <line x1=MARGIN_LEFT x2=plot_right y1=y y2=y class="stroke-slate-800" />
-                <text x=label_x y=y dy="0.35em" text-anchor="end" font-size="12" class="fill-slate-400">
+                <text
+                    x=label_x
+                    y=y
+                    dy="0.35em"
+                    text-anchor="end"
+                    font-size="12"
+                    class="fill-slate-400"
+                >
                     {format_price(tick)}
                 </text>
             }
@@ -287,7 +305,13 @@ fn ComparisonChart(comparison: Comparison) -> impl IntoView {
                 let x = x_of(tick);
                 view! {
                     <line x1=x x2=x y1=MARGIN_TOP y2=plot_bottom class="stroke-slate-800" />
-                    <text x=x y=axis_label_y text-anchor="middle" font-size="12" class="fill-slate-400">
+                    <text
+                        x=x
+                        y=axis_label_y
+                        text-anchor="middle"
+                        font-size="12"
+                        class="fill-slate-400"
+                    >
                         {format_time(tick, local, "%a %d.")}
                     </text>
                 }
@@ -369,8 +393,20 @@ fn ComparisonChart(comparison: Comparison) -> impl IntoView {
             >
                 {y_axis}
                 {x_axis}
-                <line x1=MARGIN_LEFT x2=MARGIN_LEFT y1=MARGIN_TOP y2=plot_bottom class="stroke-slate-600" />
-                <line x1=MARGIN_LEFT x2=plot_right y1=plot_bottom y2=plot_bottom class="stroke-slate-600" />
+                <line
+                    x1=MARGIN_LEFT
+                    x2=MARGIN_LEFT
+                    y1=MARGIN_TOP
+                    y2=plot_bottom
+                    class="stroke-slate-600"
+                />
+                <line
+                    x1=MARGIN_LEFT
+                    x2=plot_right
+                    y1=plot_bottom
+                    y2=plot_bottom
+                    class="stroke-slate-600"
+                />
                 {lines}
                 {hovers}
             </svg>
@@ -414,7 +450,10 @@ pub async fn get_price_comparison(
 
 #[cfg(test)]
 mod tests {
-    use super::{NearbyStation, build_comparison, day_ticks, format_price, nearest_stations, price_ticks, step_path};
+    use super::{
+        NearbyStation, build_comparison, day_ticks, format_price, nearest_stations, price_ticks,
+        step_path,
+    };
     use crate::types::StationPriceChange;
     use chrono::{DateTime, Duration, FixedOffset, TimeZone, Utc};
 
