@@ -4,14 +4,14 @@ use crate::types::StationPriceChange;
 use chrono::prelude::*;
 use leptos::prelude::*;
 
-
 #[component]
 pub(crate) fn LocalDateTime(timestamp: DateTime<Utc>, format: &'static str) -> impl IntoView {
     let hydrated = RwSignal::new(false);
     Effect::new(move |_| hydrated.set(true));
 
     view! {
-        <time datetime=timestamp.to_rfc3339()>
+        <time datetime=timestamp
+            .to_rfc3339()>
             {move || {
                 if hydrated.get() {
                     timestamp.with_timezone(&Local).format(format).to_string()
@@ -24,7 +24,10 @@ pub(crate) fn LocalDateTime(timestamp: DateTime<Utc>, format: &'static str) -> i
 }
 
 #[component]
-pub(crate) fn PriceListItem(item: StationPriceChange, distance: Signal<Option<f64>>) -> impl IntoView {
+pub(crate) fn PriceListItem(
+    item: StationPriceChange,
+    distance: Signal<Option<f64>>,
+) -> impl IntoView {
     let name = item.name;
     let updated = item.updated;
     let addr = item.addr;
@@ -43,10 +46,16 @@ pub(crate) fn PriceListItem(item: StationPriceChange, distance: Signal<Option<f6
             <address class="break-words text-sm not-italic leading-6 text-slate-400">
                 {addr}
             </address>
-            <p class="text-sm font-medium text-cyan-300">{move || distance.get().map(crate::distance::format_distance)}</p>
+            <p class="text-sm font-medium text-cyan-300">
+                {move || distance.get().map(crate::distance::format_distance)}
+            </p>
             <div class="flex flex-wrap items-center justify-between gap-2 border-t border-slate-800 pt-3 text-xs font-medium text-slate-500">
-                <span><LocalDateTime timestamp=updated format="%Y-%m-%d" /></span>
-                <span><LocalDateTime timestamp=updated format="%H:%M" /></span>
+                <span>
+                    <LocalDateTime timestamp=updated format="%Y-%m-%d" />
+                </span>
+                <span>
+                    <LocalDateTime timestamp=updated format="%H:%M" />
+                </span>
             </div>
         </article>
     }

@@ -1,5 +1,5 @@
-use clap::{Args, ValueEnum};
 use chrono_tz::Tz;
+use clap::{Args, ValueEnum};
 use refuel_app::prelude::FallbackPosition;
 use url::Url;
 
@@ -19,10 +19,14 @@ impl FuelType {
     }
 }
 
-
 #[derive(Args)]
 pub struct SourceConfig {
-    #[arg(short, long, value_name = "URL", default_value = "http://localhost:8080")]
+    #[arg(
+        short,
+        long,
+        value_name = "URL",
+        default_value = "http://localhost:8080"
+    )]
     /// URL of the price source
     pub url: Url,
     #[arg(long, value_name = "LATITUDE,LONGITUDE")]

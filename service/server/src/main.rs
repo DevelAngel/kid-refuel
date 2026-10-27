@@ -1,5 +1,5 @@
-mod download;
 mod config;
+mod download;
 mod error;
 mod load;
 mod parse;
@@ -7,14 +7,14 @@ mod save;
 
 mod collection;
 
-use crate::download::*;
 use crate::config::{FuelType, SourceConfig};
+use crate::download::*;
 use crate::load::*;
 use crate::parse::*;
 use crate::save::*;
 
-use refuel_app::prelude::{App, CollectionDiagnostic, record_collection_diagnostic};
 use refuel_app::prelude::set_fallback_position;
+use refuel_app::prelude::{App, CollectionDiagnostic, record_collection_diagnostic};
 use refuel_app::shell;
 use refuel_db::*;
 
@@ -25,14 +25,14 @@ use rand::prelude::*;
 use axum::Router;
 use clap::{Parser, Subcommand};
 
+use chrono_tz::Tz;
 use leptos_axum::{LeptosRoutes, generate_route_list};
 use std::path::PathBuf;
-use chrono_tz::Tz;
-use url::Url;
 use tokio::signal;
 use tokio::sync::watch;
 use tokio::time::{self, Duration};
 use tower_http::trace::TraceLayer;
+use url::Url;
 
 use tracing_subscriber::EnvFilter;
 
@@ -48,7 +48,6 @@ struct Cli {
     #[clap(flatten)]
     common: SourceConfig,
 }
-
 
 #[derive(Subcommand)]
 enum Commands {
@@ -248,7 +247,12 @@ async fn cmd_run_single(
 }
 
 #[tracing::instrument(skip(url))]
-async fn cmd_run_loop(url: &Url, dry_run: bool, source_time_zone: Tz, fuel_type: FuelType) -> Result<(), Box<dyn std::error::Error>> {
+async fn cmd_run_loop(
+    url: &Url,
+    dry_run: bool,
+    source_time_zone: Tz,
+    fuel_type: FuelType,
+) -> Result<(), Box<dyn std::error::Error>> {
     let mut rng = rand::thread_rng();
     let interval = Duration::from_secs(60 * 60); // 60 min
     let mut first_run = true;
@@ -299,19 +303,35 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
                 common,
                 downloaded,
                 dry_run,
-            } => cmd_run_single(&common.url, common.source_time_zone, common.fuel_type, downloaded, dry_run.to_owned()).await?,
+            } => {
+                cmd_run_single(
+                    &common.url,
+                    common.source_time_zone,
+                    common.fuel_type,
+                    downloaded,
+                    dry_run.to_owned(),
+                )
+                .await?
+            }
 
             Commands::Run { common, dry_run } => {
-                cmd_run_loop(&common.url, dry_run.to_owned(), common.source_time_zone, common.fuel_type).await?
+                cmd_run_loop(
+                    &common.url,
+                    dry_run.to_owned(),
+                    common.source_time_zone,
+                    common.fuel_type,
+                )
+                .await?
             }
         }
     } else {
         let fallback_position = cli.common.fallback_position.ok_or_else(|| {
-            std::io::Error::other("missing fallback position; provide --fallback-position LATITUDE,LONGITUDE")
+            std::io::Error::other(
+                "missing fallback position; provide --fallback-position LATITUDE,LONGITUDE",
+            )
         })?;
-        set_fallback_position(fallback_position).map_err(|_| {
-            std::io::Error::other("fallback position was already configured")
-        })?;
+        set_fallback_position(fallback_position)
+            .map_err(|_| std::io::Error::other("fallback position was already configured"))?;
 
         let conf = get_configuration(None)?;
         let leptos_options = conf.leptos_options;
@@ -343,7 +363,15 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
                 .await
         });
 
-        if let Err(error) = cmd_run_single(&cli.common.url, cli.common.source_time_zone, cli.common.fuel_type, &None, false).await {
+        if let Err(error) = cmd_run_single(
+            &cli.common.url,
+            cli.common.source_time_zone,
+            cli.common.fuel_type,
+            &None,
+            false,
+        )
+        .await
+        {
             tracing::error!("initial collection failed; web server remains available: {error}");
         }
 

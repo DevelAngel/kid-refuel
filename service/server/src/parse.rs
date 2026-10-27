@@ -1,5 +1,5 @@
-use crate::error::ParseError;
 use crate::config::FuelType;
+use crate::error::ParseError;
 use refuel_db::prelude::*;
 
 use chrono::{DateTime, Datelike, FixedOffset, TimeZone, Utc};
@@ -86,7 +86,11 @@ impl StationPriceChange {
     }
 }
 #[tracing::instrument(skip(document))]
-pub(crate) async fn parse(document: &Html, source_time_zone: Tz, fuel_type: FuelType) -> Result<ParsedPrices> {
+pub(crate) async fn parse(
+    document: &Html,
+    source_time_zone: Tz,
+    fuel_type: FuelType,
+) -> Result<ParsedPrices> {
     let price_list_selector = selector(".PriceList")?;
     let price_item_selector = selector(".PriceList__item:not(.list-ad)")?;
     let name_selector = selector(".PriceList__itemTitle")?;
@@ -120,7 +124,12 @@ pub(crate) async fn parse(document: &Html, source_time_zone: Tz, fuel_type: Fuel
     for element in price_list.select(&price_item_selector) {
         let parsed: Result<StationPriceChange> = (|| {
             let name = parse_text(&element, &name_selector, "station name")?;
-            let updated = parse_updated(&element, &updated_selector, &updated_regex, source_time_zone)?;
+            let updated = parse_updated(
+                &element,
+                &updated_selector,
+                &updated_regex,
+                source_time_zone,
+            )?;
             let addr = parse_text(&element, &address_selector, "station address")?;
             let price = parse_price(&element, &price_selector, &price_regex)?;
 
@@ -160,7 +169,6 @@ pub(crate) async fn parse(document: &Html, source_time_zone: Tz, fuel_type: Fuel
         stations,
         rejected_entries,
     })
-
 }
 fn validate_fuel_type(document: &Html, expected: FuelType) -> Result<()> {
     let heading_selector = selector("#mehr-tanken-detail-city h3")?;
@@ -187,7 +195,11 @@ fn validate_fuel_type(document: &Html, expected: FuelType) -> Result<()> {
     Ok(())
 }
 
-fn parse_mehr_tanken(document: &Html, source_time_zone: Tz, fuel_type: FuelType) -> Result<ParsedPrices> {
+fn parse_mehr_tanken(
+    document: &Html,
+    source_time_zone: Tz,
+    fuel_type: FuelType,
+) -> Result<ParsedPrices> {
     let station_selector = selector("a[href^=\"/tankstelle/\"]")?;
     let price_container_selector = selector("[class*=\"gasStationInfo_gas-price\"]")?;
     let info_container_selector = selector("[class*=\"gasStationInfo_gas-info\"]")?;
@@ -224,7 +236,12 @@ fn parse_mehr_tanken(document: &Html, source_time_zone: Tz, fuel_type: FuelType)
         let parsed: Result<StationPriceChange> = (|| {
             let name = parse_text(&element, &name_selector, "station name")?;
             let addr = parse_text(&element, &address_selector, "station address")?;
-            let updated = parse_updated(&element, &updated_selector, &updated_regex, source_time_zone)?;
+            let updated = parse_updated(
+                &element,
+                &updated_selector,
+                &updated_regex,
+                source_time_zone,
+            )?;
             let value = parse_text(&element, &price_selector, "price")?;
             let captures =
                 price_regex
@@ -419,7 +436,6 @@ fn parse_price(element: &ElementRef<'_>, selector: &Selector, regex: &Regex) -> 
     Ok([eur, cent, subcent])
 }
 
-
 #[cfg(test)]
 mod tests {
     use super::parse_updated;
@@ -465,4 +481,3 @@ mod tests {
         assert!(parse_timestamp("29.03.2026 02:30", Europe::Berlin).is_err());
     }
 }
-

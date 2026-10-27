@@ -1,12 +1,12 @@
 pub mod prelude;
 
 mod about;
-mod fallback_position;
 mod all_prices;
 mod app;
 mod collection_diagnostics;
-mod distance;
 mod current_prices;
+mod distance;
+mod fallback_position;
 mod fuel_price;
 mod price_comparison;
 mod price_history;

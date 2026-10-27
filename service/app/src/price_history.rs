@@ -4,9 +4,12 @@ use crate::types::{Station, StationPriceChange};
 
 use chrono::prelude::*;
 use leptos::prelude::*;
+use leptos_chartistry::{
+    AspectRatio, AxisMarker, Chart, IntoInner, Line, Series, Step, TickLabels, Tooltip, XGridLine,
+    YGridLine,
+};
 use leptos_router::components::{A, Outlet};
 use leptos_router::hooks::use_params_map;
-use leptos_chartistry::{AspectRatio, AxisMarker, Chart, IntoInner, Line, Series, Step, TickLabels, Tooltip, XGridLine, YGridLine};
 
 #[component]
 pub fn PriceHistory() -> impl IntoView {
@@ -102,13 +105,17 @@ pub fn StationPriceHistory() -> impl IntoView {
         },
     );
     view! {
-        <Suspense fallback=move || view! { <p class="text-slate-400">"Loading price chart..."</p> }>
-            {move || list.get().map(|result| match result {
-                Ok(data) => view! { <PriceChart data=data/> }.into_any(),
-                Err(_) => ().into_any(),
-            })}
+        <Suspense fallback=move || {
+            view! { <p class="text-slate-400">"Loading price chart..."</p> }
+        }>
+            {move || {
+                list.get()
+                    .map(|result| match result {
+                        Ok(data) => view! { <PriceChart data=data /> }.into_any(),
+                        Err(_) => ().into_any(),
+                    })
+            }}
         </Suspense>
-
 
         <div class="overflow-x-auto rounded-xl border border-slate-800 bg-slate-900 shadow-sm">
             <Suspense fallback=move || view! { <p>"Loading Station Price History..."</p> }>
@@ -148,7 +155,10 @@ pub fn StationPriceHistory() -> impl IntoView {
                                                             <FuelPrice price=item.price />
                                                         </td>
                                                         <td class="border-t border-slate-800 px-5 py-4 whitespace-nowrap text-slate-400">
-                                                            <LocalDateTime timestamp=item.updated format="%Y-%m-%d %H:%M" />
+                                                            <LocalDateTime
+                                                                timestamp=item.updated
+                                                                format="%Y-%m-%d %H:%M"
+                                                            />
                                                         </td>
                                                     </tr>
                                                 }
@@ -206,7 +216,8 @@ fn PriceChart(data: Vec<StationPriceChange>) -> impl IntoView {
         <section class="price-history-chart rounded-xl border border-slate-800 bg-slate-900 p-4 shadow-sm">
             <h2 class="mb-4 text-lg font-semibold text-white">"Price trend"</h2>
             {if !has_data {
-                view! { <p class="text-sm text-slate-400">"No price history available."</p> }.into_any()
+                view! { <p class="text-sm text-slate-400">"No price history available."</p> }
+                    .into_any()
             } else {
                 view! {
                     <div class="w-full overflow-x-auto">
@@ -222,16 +233,20 @@ fn PriceChart(data: Vec<StationPriceChange>) -> impl IntoView {
                             ]
                             tooltip=tooltip
                             series=Series::new(|point: &PricePoint| point.timestamp)
-                                .line(Line::new(|point: &PricePoint| point.price).with_name("Price (EUR/L)").with_interpolation(Step::Horizontal))
+                                .line(
+                                    Line::new(|point: &PricePoint| point.price)
+                                        .with_name("Price (EUR/L)")
+                                        .with_interpolation(Step::Horizontal),
+                                )
                             data=data
                         />
                     </div>
-                }.into_any()
+                }
+                    .into_any()
             }}
         </section>
     }
 }
-
 
 #[server(endpoint = "get_stations")]
 pub async fn get_stations() -> Result<Vec<Station>, ServerFnError> {

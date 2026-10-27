@@ -19,8 +19,16 @@ fn legacy_connection() -> AnyConnection {
 fn connection() -> AnyConnection {
     let mut conn = legacy_connection();
     let AnyConnection::Sqlite(sqlite) = &mut conn;
-    sqlite.batch_execute(include_str!("../migrations/2026-10-16-000000_harden_persistence/up.sql")).unwrap();
-    sqlite.batch_execute(include_str!("../migrations/2026-10-23-000000_add_station_coordinates/up.sql")).unwrap();
+    sqlite
+        .batch_execute(include_str!(
+            "../migrations/2026-10-16-000000_harden_persistence/up.sql"
+        ))
+        .unwrap();
+    sqlite
+        .batch_execute(include_str!(
+            "../migrations/2026-10-23-000000_add_station_coordinates/up.sql"
+        ))
+        .unwrap();
     conn
 }
 
@@ -138,7 +146,11 @@ fn migration_deduplicates_existing_stations_and_observations() {
             "../migrations/2026-10-16-000000_harden_persistence/up.sql"
         ))
         .unwrap();
-    sqlite.batch_execute(include_str!("../migrations/2026-10-23-000000_add_station_coordinates/up.sql")).unwrap();
+    sqlite
+        .batch_execute(include_str!(
+            "../migrations/2026-10-23-000000_add_station_coordinates/up.sql"
+        ))
+        .unwrap();
 
     let stations = Station::load_all(&mut conn).unwrap();
     assert_eq!(stations.len(), 1);
@@ -179,18 +191,23 @@ fn price_queries_return_complete_coordinates_and_fill_partial_pairs() {
     assert_eq!(history[0].longitude, Some(13.7));
 }
 
-
 #[test]
 fn coordinate_coverage_counts_only_stations_with_both_coordinates() {
     use refuel_db::prelude::CoordinateCoverage;
 
     let mut conn = connection();
-    let first = NewStation { name: "Alpha", addr: "1 Main Street" }
-        .save(&mut conn)
-        .unwrap();
-    NewStation { name: "Beta", addr: "2 Main Street" }
-        .save(&mut conn)
-        .unwrap();
+    let first = NewStation {
+        name: "Alpha",
+        addr: "1 Main Street",
+    }
+    .save(&mut conn)
+    .unwrap();
+    NewStation {
+        name: "Beta",
+        addr: "2 Main Street",
+    }
+    .save(&mut conn)
+    .unwrap();
 
     {
         let AnyConnection::Sqlite(sqlite) = &mut conn;
@@ -204,7 +221,10 @@ fn coordinate_coverage_counts_only_stations_with_both_coordinates() {
     }
     assert_eq!(
         CoordinateCoverage::load(&mut conn).unwrap(),
-        CoordinateCoverage { total: 2, complete: 1 }
+        CoordinateCoverage {
+            total: 2,
+            complete: 1
+        }
     );
     {
         let AnyConnection::Sqlite(sqlite) = &mut conn;
@@ -215,7 +235,10 @@ fn coordinate_coverage_counts_only_stations_with_both_coordinates() {
 
     assert_eq!(
         CoordinateCoverage::load(&mut conn).unwrap(),
-        CoordinateCoverage { total: 2, complete: 2 }
+        CoordinateCoverage {
+            total: 2,
+            complete: 2
+        }
     );
 }
 
@@ -226,6 +249,9 @@ fn coordinate_coverage_handles_an_empty_database() {
     let mut conn = connection();
     assert_eq!(
         CoordinateCoverage::load(&mut conn).unwrap(),
-        CoordinateCoverage { total: 0, complete: 0 }
+        CoordinateCoverage {
+            total: 0,
+            complete: 0
+        }
     );
 }
