@@ -101,15 +101,20 @@ async fn database_is_initialized(world: &mut CollectionWorld) {
 
 #[when("the real collector processes the simulator HTML")]
 async fn collector_processes_simulator_html(world: &mut CollectionWorld) {
-    let output = Command::new(env!("CARGO_BIN_EXE_refuel-server"))
-        .args([
-            "run-single",
-            "--downloaded",
-            world
-                .html_path()
-                .to_str()
-                .expect("fixture path should be valid UTF-8"),
-        ])
+    let mut command = Command::new(env!("CARGO_BIN_EXE_refuel-server"));
+    command.args([
+        "run-single",
+        "--downloaded",
+        world
+            .html_path()
+            .to_str()
+            .expect("fixture path should be valid UTF-8"),
+    ]);
+    let html = std::fs::read_to_string(world.html_path()).expect("fixture HTML should be readable");
+    if html.contains("Aktuelle Super (E5) Preisübersicht") {
+        command.args(["--fuel-type", "e5"]);
+    }
+    let output = command
         .env("DATABASE_URL", world.database_path())
         .env("RUST_LOG", "refuel_server=debug,info")
         .output()
