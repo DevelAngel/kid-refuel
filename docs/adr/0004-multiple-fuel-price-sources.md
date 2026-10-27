@@ -28,7 +28,7 @@ Every source parser must satisfy the same contract, independent of the website:
 
 ### Source selection and structure
 
-The operator selects the source explicitly. Each source has its own parser that produces the common parsed result. Dispatch is a plain enumeration with member functions. A trait or plugin registry is not introduced until it is needed.
+The source is derived from the host of the configured URL. Document content never selects the parser. A URL with an unsupported host is rejected before anything is downloaded. Each source has its own parser that produces the common parsed result. Dispatch is a plain enumeration with member functions. A trait or plugin registry is not introduced until it is needed.
 
 ### Admission criteria
 
@@ -90,5 +90,5 @@ Stations are stored by name and address. Different sources spell the same statio
 
 - A new source is accepted by checking the criteria, which keeps the choice independent of any website.
 - The source contract makes fuel type and update time consistent across sources.
-- The mehr-tanken parser currently stores a fixed sub-cent digit instead of the one in its markup, which violates the contract. This is tracked separately from this decision.
+- The mehr-tanken parser stores a fixed sub-cent digit instead of the one in its markup, which violates the contract. It is corrected as the first step of the implementation.
 - Cross-source station identity remains open and blocks writing a second source into the shared database.
