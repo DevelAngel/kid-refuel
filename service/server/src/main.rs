@@ -8,7 +8,7 @@ mod save;
 mod collection;
 
 use crate::download::*;
-use crate::config::SourceConfig;
+use crate::config::{FuelType, SourceConfig};
 use crate::load::*;
 use crate::parse::*;
 use crate::save::*;
@@ -110,6 +110,7 @@ async fn cmd_download(
 async fn cmd_run_single(
     url: &Url,
     source_time_zone: Tz,
+    fuel_type: FuelType,
     downloaded: &Option<PathBuf>,
     dry_run: bool,
 ) -> Result<(), Box<dyn std::error::Error>> {
@@ -162,7 +163,7 @@ async fn cmd_run_single(
         return Err(std::io::Error::other(error).into());
     }
 
-    let parsed = match parse(&document, source_time_zone).await {
+    let parsed = match parse(&document, source_time_zone, fuel_type).await {
         Ok(parsed) => parsed,
         Err(error) => {
             record_collection_diagnostic(CollectionDiagnostic {
@@ -247,12 +248,12 @@ async fn cmd_run_single(
 }
 
 #[tracing::instrument(skip(url))]
-async fn cmd_run_loop(url: &Url, dry_run: bool, source_time_zone: Tz) -> Result<(), Box<dyn std::error::Error>> {
+async fn cmd_run_loop(url: &Url, dry_run: bool, source_time_zone: Tz, fuel_type: FuelType) -> Result<(), Box<dyn std::error::Error>> {
     let mut rng = rand::thread_rng();
     let interval = Duration::from_secs(60 * 60); // 60 min
     let mut first_run = true;
     loop {
-        match cmd_run_single(url, source_time_zone, &None, dry_run).await {
+        match cmd_run_single(url, source_time_zone, fuel_type, &None, dry_run).await {
             Ok(()) => {}
             Err(error) if first_run => return Err(error),
             Err(error) => tracing::error!("scheduled collection failed; continuing: {error}"),
@@ -298,10 +299,10 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
                 common,
                 downloaded,
                 dry_run,
-            } => cmd_run_single(&common.url, common.source_time_zone, downloaded, dry_run.to_owned()).await?,
+            } => cmd_run_single(&common.url, common.source_time_zone, common.fuel_type, downloaded, dry_run.to_owned()).await?,
 
             Commands::Run { common, dry_run } => {
-                cmd_run_loop(&common.url, dry_run.to_owned(), common.source_time_zone).await?
+                cmd_run_loop(&common.url, dry_run.to_owned(), common.source_time_zone, common.fuel_type).await?
             }
         }
     } else {
@@ -342,16 +343,17 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
                 .await
         });
 
-        if let Err(error) = cmd_run_single(&cli.common.url, cli.common.source_time_zone, &None, false).await {
+        if let Err(error) = cmd_run_single(&cli.common.url, cli.common.source_time_zone, cli.common.fuel_type, &None, false).await {
             tracing::error!("initial collection failed; web server remains available: {error}");
         }
 
         let url = cli.common.url.clone();
         let source_time_zone = cli.common.source_time_zone;
+        let fuel_type = cli.common.fuel_type;
         let collector = collection::run_schedule(
             move || {
                 let url = url.clone();
-                async move { cmd_run_single(&url, source_time_zone, &None, false).await }
+                async move { cmd_run_single(&url, source_time_zone, fuel_type, &None, false).await }
             },
             shutdown_rx,
             Duration::from_secs(60 * 60),

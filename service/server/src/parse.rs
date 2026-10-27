@@ -1,4 +1,5 @@
 use crate::error::ParseError;
+use crate::config::FuelType;
 use refuel_db::prelude::*;
 
 use chrono::{DateTime, Datelike, FixedOffset, TimeZone, Utc};
@@ -85,7 +86,7 @@ impl StationPriceChange {
     }
 }
 #[tracing::instrument(skip(document))]
-pub(crate) async fn parse(document: &Html, source_time_zone: Tz) -> Result<ParsedPrices> {
+pub(crate) async fn parse(document: &Html, source_time_zone: Tz, fuel_type: FuelType) -> Result<ParsedPrices> {
     let price_list_selector = selector(".PriceList")?;
     let price_item_selector = selector(".PriceList__item:not(.list-ad)")?;
     let name_selector = selector(".PriceList__itemTitle")?;
@@ -105,7 +106,7 @@ pub(crate) async fn parse(document: &Html, source_time_zone: Tz) -> Result<Parse
             reason: error.to_string(),
         })?;
     if document.select(&price_list_selector).next().is_none() {
-        return parse_mehr_tanken(document, source_time_zone);
+        return parse_mehr_tanken(document, source_time_zone, fuel_type);
     }
 
     let price_list = document
@@ -159,8 +160,34 @@ pub(crate) async fn parse(document: &Html, source_time_zone: Tz) -> Result<Parse
         stations,
         rejected_entries,
     })
+
 }
-fn parse_mehr_tanken(document: &Html, source_time_zone: Tz) -> Result<ParsedPrices> {
+fn validate_fuel_type(document: &Html, expected: FuelType) -> Result<()> {
+    let heading_selector = selector("#mehr-tanken-detail-city h3")?;
+    let heading = document
+        .select(&heading_selector)
+        .next()
+        .map(|element| element.text().collect::<String>().trim().to_owned())
+        .unwrap_or_default();
+    let actual = if heading.contains("Super (E5)") {
+        FuelType::E5
+    } else if heading.contains("Super (E10)") {
+        FuelType::E10
+    } else {
+        return Err(ParseError::MissingFuelType { heading });
+    };
+
+    if actual.label() != expected.label() {
+        return Err(ParseError::FuelTypeMismatch {
+            expected: expected.label(),
+            actual: actual.label(),
+        });
+    }
+
+    Ok(())
+}
+
+fn parse_mehr_tanken(document: &Html, source_time_zone: Tz, fuel_type: FuelType) -> Result<ParsedPrices> {
     let station_selector = selector("a[href^=\"/tankstelle/\"]")?;
     let price_container_selector = selector("[class*=\"gasStationInfo_gas-price\"]")?;
     let info_container_selector = selector("[class*=\"gasStationInfo_gas-info\"]")?;
@@ -250,6 +277,7 @@ fn parse_mehr_tanken(document: &Html, source_time_zone: Tz) -> Result<ParsedPric
         return Err(ParseError::MissingPriceList);
     }
 
+    validate_fuel_type(document, fuel_type)?;
     Ok(ParsedPrices {
         stations,
         rejected_entries,
