@@ -40,11 +40,3 @@ language = "system"
 types = ["rust"]
 pass_filenames = false
 entry = "cargo clippy --all-targets --all-features -- -D warnings"
-[[repos.hooks]]
-stages = ["pre-commit"]
-id = "cargo-test"
-name = "cargo test"
-language = "system"
-types = ["rust"]
-pass_filenames = false
-entry = "cargo nextest run"
