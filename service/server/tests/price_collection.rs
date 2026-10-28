@@ -1,124 +1,127 @@
+use cucumber::{World, given, then, when};
+use std::path::PathBuf;
 use std::process::{Command, Output};
 
-fn run_collector(fixture: &str) -> Output {
-    Command::new(env!("CARGO_BIN_EXE_refuel-server"))
-        .args(["run-single", "--downloaded", fixture, "--dry-run"])
-        .env("RUST_LOG", "refuel_server=debug,info")
-        .output()
-        .expect("collector process should start")
+#[derive(Debug, World)]
+#[world(init = Self::new)]
+struct CollectorWorld {
+    _directory: assert_fs::TempDir,
+    html_path: PathBuf,
+    url: Option<String>,
+    fuel_type: Option<String>,
+    output: Option<Output>,
 }
-fn run_collector_content(html: &str) -> Output {
-    use std::time::{SystemTime, UNIX_EPOCH};
 
-    let nonce = SystemTime::now()
-        .duration_since(UNIX_EPOCH)
-        .map(|duration| duration.as_nanos())
-        .unwrap_or_default();
-    let path = std::env::temp_dir().join(format!("refuel-sim-{}-{nonce}.html", std::process::id()));
-    std::fs::write(&path, html).expect("simulator HTML should be written");
-    let output = run_collector(path.to_str().expect("temporary path should be valid UTF-8"));
-    let _ = std::fs::remove_file(path);
-    output
-}
-#[test]
-fn rejects_a_fuel_type_mismatch_by_default() {
-    let fixture = concat!(
-        env!("CARGO_MANIFEST_DIR"),
-        "/../../examples/mehr-tanken-dresden-E5.html"
-    );
-    let output = run_collector(fixture);
-    let stderr = String::from_utf8_lossy(&output.stderr);
+impl CollectorWorld {
+    fn new() -> Self {
+        let directory = assert_fs::TempDir::new().expect("temporary directory should be created");
+        let html_path = directory.path().join("fixture.html");
+        Self {
+            _directory: directory,
+            html_path,
+            url: None,
+            fuel_type: None,
+            output: None,
+        }
+    }
 
-    assert!(!output.status.success(), "{stderr}");
-    assert!(
-        stderr.contains("FuelTypeMismatch { expected: \"E10\", actual: \"E5\" }"),
-        "{stderr}"
-    );
+    fn use_example(&self, relative_path: &str) {
+        let source = PathBuf::from(env!("CARGO_MANIFEST_DIR")).join(relative_path);
+        std::fs::copy(source, &self.html_path).expect("fixture HTML should be copied");
+    }
+
+    fn output(&self) -> &Output {
+        self.output.as_ref().expect("collector should have run")
+    }
+
+    fn log(&self) -> String {
+        String::from_utf8_lossy(&self.output().stderr).into_owned()
+    }
 }
-#[test]
-fn rejects_a_page_without_a_fuel_type_heading() {
-    let fixture = concat!(
-        env!("CARGO_MANIFEST_DIR"),
-        "/../../examples/mehr-tanken-dresden-E5.html"
-    );
-    let html = std::fs::read_to_string(fixture).expect("Mehr-Tanken HTML should be readable");
+
+#[given("the Mehr-Tanken Dresden E5 page is the input")]
+async fn mehr_tanken_e5_page_is_input(world: &mut CollectorWorld) {
+    world.use_example("../../examples/mehr-tanken-dresden-E5.html");
+}
+
+#[given("its fuel type heading does not name a fuel type")]
+async fn heading_names_no_fuel_type(world: &mut CollectorWorld) {
+    let html = std::fs::read_to_string(&world.html_path).expect("page HTML should be readable");
     let html = html.replace(
         "Aktuelle Super (E5) Preisübersicht",
         "Aktuelle Kraftstoff Preisübersicht",
     );
-    let output = run_collector_content(&html);
-    let stderr = String::from_utf8_lossy(&output.stderr);
-
-    assert!(!output.status.success(), "{stderr}");
-    assert!(stderr.contains("MissingFuelType"), "{stderr}");
-    assert!(
-        stderr.contains("Aktuelle Kraftstoff Preisübersicht"),
-        "{stderr}"
-    );
+    std::fs::write(&world.html_path, html).expect("page HTML should be written");
 }
 
-#[test]
-fn accepts_the_configured_fuel_type() {
-    let fixture = concat!(
-        env!("CARGO_MANIFEST_DIR"),
-        "/../../examples/mehr-tanken-dresden-E5.html"
-    );
-    let output = Command::new(env!("CARGO_BIN_EXE_refuel-server"))
-        .args([
-            "run-single",
-            "--downloaded",
-            fixture,
-            "--dry-run",
-            "--fuel-type",
-            "e5",
-        ])
-        .env("RUST_LOG", "refuel_server=debug,info")
-        .output()
-        .expect("collector process should start");
-    let stderr = String::from_utf8_lossy(&output.stderr);
-
-    assert!(output.status.success(), "{stderr}");
-    assert!(stderr.contains("prices fetched:"), "{stderr}");
-}
-
-#[test]
-fn parses_a_valid_price_observation() {
+#[given("the simulator page is the input")]
+async fn simulator_page_is_input(world: &mut CollectorWorld) {
     let html = refuel_sim::render_home().expect("simulator page should render");
-    let output = run_collector_content(&html);
-    let stderr = String::from_utf8_lossy(&output.stderr);
-
-    assert!(output.status.success(), "{stderr}");
-    assert!(stderr.contains("prices fetched: 8"), "{stderr}");
-    assert!(stderr.contains("MyESSO"), "{stderr}");
-    assert!(stderr.contains("Marienfelder Chaussee 171"), "{stderr}");
+    std::fs::write(&world.html_path, html).expect("simulator HTML should be written");
 }
 
-#[test]
-fn skips_malformed_entries_without_aborting_collection() {
-    let fixture = concat!(
-        env!("CARGO_MANIFEST_DIR"),
-        "/tests/fixtures/malformed_prices.html"
-    );
-    let output = run_collector(fixture);
-    let stderr = String::from_utf8_lossy(&output.stderr);
-
-    assert!(output.status.success(), "{stderr}");
-    assert!(stderr.contains("prices fetched: 1"), "{stderr}");
-    assert!(stderr.contains("Valid Station"), "{stderr}");
-    assert!(!stderr.contains("Invalid Price Station"), "{stderr}");
-    assert!(!stderr.contains("Invalid Timestamp Station"), "{stderr}");
+#[given("the page with malformed entries is the input")]
+async fn page_with_malformed_entries_is_input(world: &mut CollectorWorld) {
+    world.use_example("tests/fixtures/malformed_prices.html");
 }
 
-#[test]
-fn reports_a_missing_price_list_without_panicking() {
-    let fixture = concat!(
-        env!("CARGO_MANIFEST_DIR"),
-        "/tests/fixtures/no_price_list.html"
-    );
-    let output = run_collector(fixture);
-    let stderr = String::from_utf8_lossy(&output.stderr);
+#[given("the page without a price list is the input")]
+async fn page_without_price_list_is_input(world: &mut CollectorWorld) {
+    world.use_example("tests/fixtures/no_price_list.html");
+}
 
-    assert!(!output.status.success());
-    assert!(!stderr.contains("panicked at"), "{stderr}");
-    assert!(stderr.contains("MissingPriceList"), "{stderr}");
+#[given(expr = "the source URL is {string}")]
+async fn source_url_is(world: &mut CollectorWorld, url: String) {
+    world.url = Some(url);
+}
+
+#[given(expr = "the configured fuel type is {string}")]
+async fn configured_fuel_type_is(world: &mut CollectorWorld, fuel_type: String) {
+    world.fuel_type = Some(fuel_type);
+}
+
+#[when("the collector dry-runs the page")]
+async fn collector_dry_runs_the_page(world: &mut CollectorWorld) {
+    let mut command = Command::new(env!("CARGO_BIN_EXE_refuel-server"));
+    command
+        .args(["run-single", "--dry-run", "--downloaded"])
+        .arg(&world.html_path)
+        .env("RUST_LOG", "refuel_server=debug,info");
+    if let Some(url) = &world.url {
+        command.arg("--url").arg(url);
+    }
+    if let Some(fuel_type) = &world.fuel_type {
+        command.arg("--fuel-type").arg(fuel_type);
+    }
+    world.output = Some(command.output().expect("collector process should start"));
+}
+
+#[then("the collector succeeds")]
+async fn collector_succeeds(world: &mut CollectorWorld) {
+    assert!(world.output().status.success(), "{}", world.log());
+}
+
+#[then("the collector fails")]
+async fn collector_fails(world: &mut CollectorWorld) {
+    assert!(!world.output().status.success(), "{}", world.log());
+}
+
+#[then(expr = "the log contains {string}")]
+async fn log_contains(world: &mut CollectorWorld, text: String) {
+    let log = world.log();
+    assert!(log.contains(&text), "{log}");
+}
+
+#[then(expr = "the log does not contain {string}")]
+async fn log_does_not_contain(world: &mut CollectorWorld, text: String) {
+    let log = world.log();
+    assert!(!log.contains(&text), "{log}");
+}
+
+#[tokio::test]
+async fn gherkin_features() {
+    CollectorWorld::cucumber()
+        .with_default_cli()
+        .run_and_exit("tests/features/price_collection.feature")
+        .await;
 }
