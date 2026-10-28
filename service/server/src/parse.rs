@@ -214,12 +214,11 @@ fn parse_mehr_tanken(
         pattern: "timestamp",
         reason: error.to_string(),
     })?;
-    let price_regex = Regex::new(r"(?P<eur>\d{1,2})[,.](?P<cent>\d{2})").map_err(|error| {
-        ParseError::InvalidPattern {
+    let price_regex = Regex::new(r"(?P<eur>\d{1,2})[,.](?P<cent>\d{2})\s*(?P<subcent>\d)")
+        .map_err(|error| ParseError::InvalidPattern {
             pattern: "price",
             reason: error.to_string(),
-        }
-    })?;
+        })?;
 
     let coordinates_by_id = mehr_tanken_coordinates(document)?;
 
@@ -260,6 +259,9 @@ fn parse_mehr_tanken(
             let cent = parse_part("cent").ok_or_else(|| ParseError::InvalidPrice {
                 value: value.clone(),
             })?;
+            let subcent = parse_part("subcent").ok_or_else(|| ParseError::InvalidPrice {
+                value: value.clone(),
+            })?;
 
             let coordinates = element
                 .value()
@@ -275,7 +277,7 @@ fn parse_mehr_tanken(
                     coordinates,
                 },
                 price_change: PriceChange {
-                    price: [eur, cent, 9],
+                    price: [eur, cent, subcent],
                     updated,
                 },
             })

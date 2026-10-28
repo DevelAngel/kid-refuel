@@ -16,6 +16,12 @@ Feature: Persist collected fuel prices
     Then current Mehr-Tanken prices are queryable
     And JET has its expected address and price
 
+  Scenario: Keep the third price decimal from the current Mehr-Tanken page
+    Given the Mehr-Tanken Dresden page is the input
+    And the database is initialized with the application schema
+    When the real collector processes the simulator HTML
+    Then Greenline keeps the third decimal of its price
+
   Scenario: Collect station coordinates from the simulator
     Given the simulator provides eight fuel stations
     And the database is initialized with the application schema

@@ -174,6 +174,18 @@ async fn jet_has_expected_address_and_price(world: &mut CollectionWorld) {
     }));
 }
 
+#[then("Greenline keeps the third decimal of its price")]
+async fn greenline_keeps_the_third_price_decimal(world: &mut CollectionWorld) {
+    let mut connection = world.connection();
+    let current = StationPriceChange::load_current(&mut connection)
+        .expect("persisted current prices should be queryable");
+    assert!(current.iter().any(|station| {
+        station.name == "Greenline"
+            && station.addr == "Großenhainer Str. 44, 01127 Dresden"
+            && station.price == [2, 12, 8]
+    }));
+}
+
 #[given("the page without station coordinates is the input")]
 async fn page_without_coordinates_is_input(world: &mut CollectionWorld) {
     let fixture = concat!(
