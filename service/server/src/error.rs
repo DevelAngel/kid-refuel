@@ -11,6 +11,8 @@ pub enum ParseError {
     MissingFuelType { heading: String },
     #[error("price list not found in source HTML")]
     MissingPriceList,
+    #[error("unsupported price source: {url}")]
+    UnsupportedSource { url: String },
     #[error("missing or empty {field} in source HTML")]
     MissingField { field: &'static str },
     #[error("invalid price value: {value}")]

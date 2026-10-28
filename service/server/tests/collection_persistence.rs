@@ -15,6 +15,7 @@ struct CollectionWorld {
     _directory: Option<assert_fs::TempDir>,
     database_path: Option<PathBuf>,
     html_path: Option<PathBuf>,
+    source_url: Option<String>,
     response_excerpt: Option<String>,
 }
 
@@ -27,6 +28,7 @@ impl CollectionWorld {
             _directory: Some(directory),
             database_path: Some(database_path),
             response_excerpt: None,
+            source_url: None,
             html_path: Some(html_path),
         }
     }
@@ -65,6 +67,7 @@ async fn mehr_tanken_page_is_input(world: &mut CollectionWorld) {
         "/../../examples/mehr-tanken-dresden-E5.html"
     );
     std::fs::copy(fixture, world.html_path()).expect("Mehr-Tanken HTML should be copied");
+    world.source_url = Some("https://www.mehr-tanken.de/".to_owned());
 }
 
 #[given("the simulator provides eight fuel stations")]
@@ -113,6 +116,9 @@ async fn collector_processes_simulator_html(world: &mut CollectionWorld) {
     let html = std::fs::read_to_string(world.html_path()).expect("fixture HTML should be readable");
     if html.contains("Aktuelle Super (E5) Preisübersicht") {
         command.args(["--fuel-type", "e5"]);
+    }
+    if let Some(url) = &world.source_url {
+        command.arg("--url").arg(url);
     }
     let output = command
         .env("DATABASE_URL", world.database_path())

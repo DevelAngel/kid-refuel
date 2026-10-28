@@ -4,14 +4,15 @@ mod error;
 mod load;
 mod parse;
 mod save;
+mod source;
 
 mod collection;
 
 use crate::config::{FuelType, SourceConfig};
 use crate::download::*;
 use crate::load::*;
-use crate::parse::*;
 use crate::save::*;
+use crate::source::Source;
 
 use refuel_app::prelude::set_fallback_position;
 use refuel_app::prelude::{App, CollectionDiagnostic, record_collection_diagnostic};
@@ -108,6 +109,7 @@ async fn cmd_download(
 #[tracing::instrument(skip(url))]
 async fn cmd_run_single(
     url: &Url,
+    source: Source,
     source_time_zone: Tz,
     fuel_type: FuelType,
     downloaded: &Option<PathBuf>,
@@ -162,7 +164,7 @@ async fn cmd_run_single(
         return Err(std::io::Error::other(error).into());
     }
 
-    let parsed = match parse(&document, source_time_zone, fuel_type).await {
+    let parsed = match source.parse(&document, source_time_zone, fuel_type) {
         Ok(parsed) => parsed,
         Err(error) => {
             record_collection_diagnostic(CollectionDiagnostic {
@@ -249,6 +251,7 @@ async fn cmd_run_single(
 #[tracing::instrument(skip(url))]
 async fn cmd_run_loop(
     url: &Url,
+    source: Source,
     dry_run: bool,
     source_time_zone: Tz,
     fuel_type: FuelType,
@@ -257,7 +260,7 @@ async fn cmd_run_loop(
     let interval = Duration::from_secs(60 * 60); // 60 min
     let mut first_run = true;
     loop {
-        match cmd_run_single(url, source_time_zone, fuel_type, &None, dry_run).await {
+        match cmd_run_single(url, source, source_time_zone, fuel_type, &None, dry_run).await {
             Ok(()) => {}
             Err(error) if first_run => return Err(error),
             Err(error) => tracing::error!("scheduled collection failed; continuing: {error}"),
@@ -304,8 +307,10 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
                 downloaded,
                 dry_run,
             } => {
+                let source = Source::from_url(&common.url)?;
                 cmd_run_single(
                     &common.url,
+                    source,
                     common.source_time_zone,
                     common.fuel_type,
                     downloaded,
@@ -315,8 +320,10 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
             }
 
             Commands::Run { common, dry_run } => {
+                let source = Source::from_url(&common.url)?;
                 cmd_run_loop(
                     &common.url,
+                    source,
                     dry_run.to_owned(),
                     common.source_time_zone,
                     common.fuel_type,
@@ -332,6 +339,7 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
         })?;
         set_fallback_position(fallback_position)
             .map_err(|_| std::io::Error::other("fallback position was already configured"))?;
+        let source = Source::from_url(&cli.common.url)?;
 
         let conf = get_configuration(None)?;
         let leptos_options = conf.leptos_options;
@@ -365,6 +373,7 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
 
         if let Err(error) = cmd_run_single(
             &cli.common.url,
+            source,
             cli.common.source_time_zone,
             cli.common.fuel_type,
             &None,
@@ -381,7 +390,9 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
         let collector = collection::run_schedule(
             move || {
                 let url = url.clone();
-                async move { cmd_run_single(&url, source_time_zone, fuel_type, &None, false).await }
+                async move {
+                    cmd_run_single(&url, source, source_time_zone, fuel_type, &None, false).await
+                }
             },
             shutdown_rx,
             Duration::from_secs(60 * 60),
