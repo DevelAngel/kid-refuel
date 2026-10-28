@@ -96,6 +96,18 @@ async fn collector_dry_runs_the_page(world: &mut CollectorWorld) {
     world.output = Some(command.output().expect("collector process should start"));
 }
 
+#[when("the collector dry-runs the source URL")]
+async fn collector_dry_runs_the_source_url(world: &mut CollectorWorld) {
+    let url = world.url.as_ref().expect("source URL should be set");
+    let output = Command::new(env!("CARGO_BIN_EXE_refuel-server"))
+        .args(["run-single", "--dry-run", "--url"])
+        .arg(url)
+        .env("RUST_LOG", "refuel_server=debug,info")
+        .output()
+        .expect("collector process should start");
+    world.output = Some(output);
+}
+
 #[then("the collector succeeds")]
 async fn collector_succeeds(world: &mut CollectorWorld) {
     assert!(world.output().status.success(), "{}", world.log());

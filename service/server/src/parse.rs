@@ -85,12 +85,7 @@ impl StationPriceChange {
         })
     }
 }
-#[tracing::instrument(skip(document))]
-pub(crate) async fn parse(
-    document: &Html,
-    source_time_zone: Tz,
-    fuel_type: FuelType,
-) -> Result<ParsedPrices> {
+pub(crate) fn parse_simulator(document: &Html, source_time_zone: Tz) -> Result<ParsedPrices> {
     let price_list_selector = selector(".PriceList")?;
     let price_item_selector = selector(".PriceList__item:not(.list-ad)")?;
     let name_selector = selector(".PriceList__itemTitle")?;
@@ -109,9 +104,6 @@ pub(crate) async fn parse(
             pattern: "price",
             reason: error.to_string(),
         })?;
-    if document.select(&price_list_selector).next().is_none() {
-        return parse_mehr_tanken(document, source_time_zone, fuel_type);
-    }
 
     let price_list = document
         .select(&price_list_selector)
@@ -195,7 +187,7 @@ fn validate_fuel_type(document: &Html, expected: FuelType) -> Result<()> {
     Ok(())
 }
 
-fn parse_mehr_tanken(
+pub(crate) fn parse_mehr_tanken(
     document: &Html,
     source_time_zone: Tz,
     fuel_type: FuelType,
